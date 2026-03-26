@@ -2,6 +2,19 @@
 //this provides this file access to the database
 require_once 'db.php';
 
+// --- CREATE A USER ---
+function createUser($pdo, $tag, $first_name, $last_name, $email, $password, $bio = null, $picture = null) {
+    $pw_hash = password_hash($password, PASSWORD_BCRYPT);
+
+    $stmt = $pdo->prepare("
+        INSERT INTO Users (tag, first_name, last_name, email, pw_hash, bio, picture)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    ");
+    $stmt->execute([$tag, $first_name, $last_name, $email, $pw_hash, $bio, $picture]);
+
+    return $tag;
+}
+
 // --- GET PUBLIC USER INFO ---
 //call this function to actually access the information of a user using their tag (for example, @elonmusk)
 function getUserInfo($pdo, $tag) {
