@@ -9,10 +9,6 @@ CREATE TABLE Users (
     last_name   VARCHAR(50)     NOT NULL,
     email       VARCHAR(255)    NOT NULL UNIQUE,
     pw_hash     CHAR(60)        NOT NULL,
-    fav_song_1  INT             DEFAULT NULL COMMENT 'review ids', 
-    fav_song_2  INT             DEFAULT NULL,
-    fav_song_3  INT             DEFAULT NULL,
-    fav_song_4  INT             DEFAULT NULL,
     bio         VARCHAR(200)    DEFAULT NULL,
     picture     MEDIUMBLOB      DEFAULT NULL,
 
@@ -42,5 +38,17 @@ CREATE TABLE UserReviews (
     CONSTRAINT forkey_ur_user   FOREIGN KEY (user_tag)  REFERENCES Users(tag)
                                 ON UPDATE CASCADE ON DELETE CASCADE,
     CONSTRAINT forkey_ur_review FOREIGN KEY (review_id) REFERENCES Reviews(id)
+                                ON UPDATE CASCADE ON DELETE CASCADE
+);
+
+CREATE TABLE UserFavorites (
+    user_tag    VARCHAR(32)     NOT NULL,
+    review_id   INT UNSIGNED    NOT NULL,
+    rank        TINYINT         NOT NULL CHECK (rank BETWEEN 1 AND 4),
+
+    PRIMARY KEY (user_tag, rank),
+    CONSTRAINT forkey_uf_user   FOREIGN KEY (user_tag)  REFERENCES  Users(tag)
+                                ON UPDATE CASCADE ON DELETE CASCADE,
+    CONSTRAINT forkey_uf_review FOREIGN KEY (review_id) REFERENCES Reviews(id)
                                 ON UPDATE CASCADE ON DELETE CASCADE
 );
