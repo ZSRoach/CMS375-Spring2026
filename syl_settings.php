@@ -269,7 +269,8 @@ footer{text-align:center;padding:32px 40px;color:var(--muted);font-size:.75rem;f
   <nav class="sb-nav">
     <a class="sb-link "      href="syl_home.php"      data-label="home">      <span class="sb-icon">&#127968;</span><span class="sb-label">Home</span></a>
     <a class="sb-link "     href="syl_songs.php"     data-label="songs">     <span class="sb-icon">&#127925;</span><span class="sb-label">Songs</span></a>
-    
+    <a class="sb-link" href="syl_friends.php"   data-label="friends">   <span class="sb-icon">&#128101;</span><span class="sb-label">Friends</span></a>
+
     <a class="sb-link " href="syl_community.php" data-label="community"><span class="sb-icon">&#127758;</span><span class="sb-label">Community</span></a>
   </nav>
   <div class="sb-bottom">
@@ -478,7 +479,7 @@ footer{text-align:center;padding:32px 40px;color:var(--muted);font-size:.75rem;f
           <div class="danger-item-label">Delete account</div>
           <div class="danger-item-sub">Permanently deletes your user row. All reviews and favorites cascade-delete automatically per the FK constraints in the schema.</div>
         </div>
-        <button class="danger-btn" onclick="openConfirm()">Delete Account</button>
+        <button class="danger-btn" href="syl_auth.php?action=logout" style="text-decoration:none;">Log Out</a>
       </div>
     </div>
 
@@ -499,8 +500,10 @@ footer{text-align:center;padding:32px 40px;color:var(--muted);font-size:.75rem;f
     </div>
     <div class="cm-actions">
       <button class="cm-cancel" onclick="closeConfirm()">Cancel</button>
-      <form method="post" action="syl_settings.php" id="deleteForm" style="display:none;"><input type="hidden" name="action" value="delete_account"></form>
-      <button class="cm-confirm" onclick="document.getElementById('deleteForm').submit()">Yes, delete it</button>
+      <form method="post" action="syl_settings.php" id="deleteForm">
+        <input type="hidden" name="action" value="delete_account">
+        <button type="submit" class="cm-confirm">Yes, delete it</button>
+      </form>
     </div>
   </div>
 </div>
