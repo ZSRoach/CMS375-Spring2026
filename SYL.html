@@ -1,0 +1,1451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SYL — Save Your Listens</title>
+<link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=DM+Sans:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --yellow:  #F5E642;   /* primary accent / highlight color */
+    --pink:    #F06292;   /* song row color option */
+    --teal:    #4DD0C4;   /* song row color option */
+    --lavender:#B39DDB;   /* song row color option */
+    --green:   #69D17E;   /* favorite tile color */
+    --orange:  #FF8A50;   /* song row color option */
+    --blue:    #5B9BF5;   /* favorite tile color */
+    --purple:  #9C6FE4;   /* favorite tile color */
+    --sand:    #E8E0D0;   /* song row color option (light neutral) */
+    --dark:    #1A1A2E;   /* nav and card backgrounds */
+    --darker:  #0F0F1E;   /* main page background */
+    --card:    #22223B;   /* elevated card surfaces */
+    --text:    #F0EDE6;   /* primary readable text */
+    --muted:   #8B8BAA;   /* secondary/placeholder text */
+  }
+ 
+  * { margin:0; padding:0; box-sizing:border-box; }
+ 
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--darker);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /*Navigation*/
+  nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 18px 48px;
+    background: var(--dark);
+    border-bottom: 2px solid #ffffff10;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+
+  }
+   .nav-logo {
+    font-family: 'Dela Gothic One', sans-serif;
+    font-size: 1.6rem;
+    letter-spacing: -1px;
+    background: linear-gradient(90deg, var(--yellow), var(--pink), var(--teal));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .nav-links { display: flex; gap: 12px; align-items: center; }
+  .nav-btn {
+    padding: 9px 22px;
+    border-radius: 100px;
+    border: none;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .nav-btn.ghost {
+    background: transparent;
+    color: var(--text);
+    border: 2px solid #ffffff25;
+  }
+  .nav-btn.ghost:hover { border-color: var(--yellow); color: var(--yellow); }
+  .nav-btn.primary {
+    background: var(--yellow);
+    color: var(--dark);
+  }
+  .nav-btn.primary:hover { background: #ffe100; transform: translateY(-1px); }
+
+
+   /* ─────────────────────────────────────────
+     PAGE SYSTEM --3/15/2026
+     Only one page is visible at a time. Pages are hidden
+     by default (display:none) and made visible by adding
+     the "active" class via showPage() in JavaScript.
+     Current pages: home, auth, profile
+  ───────────────────────────────────────── */
+  .page { display: none; }
+  .page.active { display: block; }
+ 
+  /* ─────────────────────────────────────────
+     HOME PAGE — HERO SECTION
+     Two-column layout: left = text + CTA buttons,
+     right = decorative mini profile preview card.
+     Both "Get Started" and "Log In" buttons route
+     through goToAuth() which takes you to the auth page.
+  ───────────────────────────────────────── */
+  .hero {
+    padding: 80px 48px 60px;
+    max-width: 1100px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 60px;
+    align-items: center;
+  }
+  .hero-eyebrow {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 3px;
+    color: var(--teal);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  .hero-title {
+    font-family: 'Dela Gothic One', sans-serif;
+    font-size: 3.4rem;
+    line-height: 1.05;
+    margin-bottom: 20px;
+  }
+  .hero-title span { color: var(--yellow); }
+  .hero-sub {
+    font-size: 1.05rem;
+    color: var(--muted);
+    line-height: 1.7;
+    margin-bottom: 32px;
+  }
+  .hero-cta {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .cta-btn {
+    padding: 14px 30px;
+    border-radius: 100px;
+    border: none;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .cta-btn.big { background: var(--yellow); color: var(--dark); }
+  .cta-btn.big:hover { transform: translateY(-2px); box-shadow: 0 10px 30px #F5E64240; }
+  .cta-btn.outline { background: transparent; color: var(--text); border: 2px solid #ffffff30; }
+  .cta-btn.outline:hover { border-color: var(--teal); color: var(--teal); }
+
+  /* Preview card */
+  .hero-preview {
+    background: var(--card);
+    border-radius: 20px;
+    overflow: hidden;
+    border: 1px solid #ffffff10;
+    box-shadow: 0 30px 80px #00000060;
+  }
+  .preview-header {
+    padding: 14px 20px;
+    background: #2D2D4E;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .preview-dots { display: flex; gap: 6px; }
+  .preview-dots span {
+    width: 10px; height: 10px; border-radius: 50%;
+  }
+  .dot-r { background: var(--pink); }
+  .dot-y { background: var(--yellow); }
+  .dot-g { background: var(--green); }
+  .preview-title-bar {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+    margin-left: 6px;
+  }
+  .preview-body { padding: 16px; }
+  .preview-user-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .preview-avatar {
+    width: 44px; height: 44px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--green), var(--teal));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem;
+  }
+  .preview-username { font-weight: 700; font-size: 0.95rem; }
+  .preview-handle { font-size: 0.75rem; color: var(--muted); }
+ 
+  .preview-song {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    margin-bottom: 7px;
+    font-size: 0.82rem;
+    font-weight: 600;
+  }
+  .preview-song .snum {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--dark);
+    opacity: 0.6;
+    min-width: 16px;
+  }
+  .preview-song .sname { flex: 1; }
+  .preview-song .sartist { opacity: 0.65; font-weight: 400; }
+  .preview-song .srating { font-family: 'Space Mono', monospace; font-size: 0.7rem; }
+ 
+  /* ── PREVIEW SONGS ── */
+  .ps-1 { background: var(--yellow); color: var(--dark); }
+  .ps-2 { background: var(--pink);   color: #fff; }
+  .ps-3 { background: var(--teal);   color: var(--dark); }
+  .ps-4 { background: var(--lavender); color: var(--dark); }
+  .ps-5 { background: var(--sand);   color: var(--dark); }
+ 
+  /* ─────────────────────────────────────────
+     HOME PAGE — FEATURES STRIP
+     Three info cards explaining what SYL does.
+     Pure visual/marketing — no interactivity.
+     Content here is static; no DB connection needed.
+  ───────────────────────────────────────── */
+  .features {
+    max-width: 1100px;
+    margin: 0 auto 80px;
+    padding: 0 48px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+  .feat-card {
+    background: var(--card);
+    border-radius: 16px;
+    padding: 28px;
+    border: 1px solid #ffffff08;
+    transition: transform 0.2s;
+  }
+  .feat-card:hover { transform: translateY(-4px); }
+  .feat-icon {
+    font-size: 2rem;
+    margin-bottom: 14px;
+    display: block;
+  }
+  .feat-title {
+    font-family: 'Dela Gothic One', sans-serif;
+    font-size: 1rem;
+    margin-bottom: 8px;
+  }
+  .feat-desc { font-size: 0.88rem; color: var(--muted); line-height: 1.6; }
+ 
+  /* ─────────────────────────────────────────
+     HOME PAGE — RECENT LISTENS PREVIEW --03/19/26
+     A sample public feed of songs on the landing page.
+     Currently hardcoded HTML for demo purposes.
+     In the PHP version, this will be a loop:
+       <?php foreach ($recent_songs as $song): ?>
+         <div class="song-row ..."> ... </div>
+       <?php endforeach; ?>
+  ───────────────────────────────────────── */
+  .section-block {
+    max-width: 1100px;
+    margin: 0 auto 80px;
+    padding: 0 48px;
+  }
+  .section-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 3px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .section-heading {
+    font-family: 'Dela Gothic One', sans-serif;
+    font-size: 1.8rem;
+    margin-bottom: 24px;
+  }
+ 
+  /* ─────────────────────────────────────────
+     SONG ROW
+     The colored horizontal bars used in both the home
+     feed and the profile's recent listens table.
+     Each row shows: number, song name, artist, duration, rating, note.
+     Color classes (sr-yellow, sr-pink, etc.) are applied
+     per row — in PHP this will come from the color column
+     stored in the reviews table in MySQL.
+  ───────────────────────────────────────── */
+  .song-row {
+    display: grid;
+    grid-template-columns: 32px 1fr 140px 90px 80px 1fr;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 20px;
+    border-radius: 12px;
+    margin-bottom: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    transition: filter 0.15s;
+    cursor: pointer;
+  }
+  .song-row:hover { filter: brightness(1.08); }
+  .song-row .row-num {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    opacity: 0.55;
+    text-align: center;
+  }
+  .song-row .row-name { font-weight: 700; }
+  .song-row .row-artist { opacity: 0.7; font-weight: 400; }
+  .song-row .row-dur {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.78rem;
+    opacity: 0.7;
+  }
+  .song-row .row-rating {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.78rem;
+  }
+  .song-row .row-note {
+    font-size: 0.8rem;
+    font-weight: 400;
+    opacity: 0.75;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .sr-yellow  { background: var(--yellow);  color: var(--dark); }
+  .sr-sand    { background: var(--sand);    color: var(--dark); }
+  .sr-pink    { background: var(--pink);    color: #fff; }
+  .sr-teal    { background: var(--teal);    color: var(--dark); }
+  .sr-lavender{ background: var(--lavender); color: var(--dark); }
+ 
+  /* ══════════════════════════════════
+     LOGIN MODAL
+  ══════════════════════════════════ */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: #00000080;
+    backdrop-filter: blur(6px);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--card);
+    border-radius: 24px;
+    padding: 48px 40px;
+    width: 420px;
+    max-width: 95vw;
+    border: 1px solid #ffffff15;
+    box-shadow: 0 40px 100px #000000a0;
+    position: relative;
+  }
+  .modal-close {
+    position: absolute;
+    top: 18px; right: 20px;
+    background: none; border: none;
+    color: var(--muted); font-size: 1.4rem;
+    cursor: pointer; line-height: 1;
+  }
+  .modal-close:hover { color: var(--text); }
+  .modal-logo {
+    font-family: 'Dela Gothic One', sans-serif;
+    font-size: 1.8rem;
+    background: linear-gradient(90deg, var(--yellow), var(--pink));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 6px;
+  }
+  .modal-sub { font-size: 0.88rem; color: var(--muted); margin-bottom: 32px; }
+ 
+  .tab-row {
+    display: flex;
+    background: var(--darker);
+    border-radius: 12px;
+    padding: 4px;
+    margin-bottom: 28px;
+  }
+  .tab {
+    flex: 1; padding: 9px;
+    border: none; background: none;
+    border-radius: 9px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 600; font-size: 0.88rem;
+    color: var(--muted); cursor: pointer;
+    transition: all 0.2s;
+  }
+  .tab.active { background: var(--yellow); color: var(--dark); }
+ 
+  .form-group { margin-bottom: 18px; }
+  .form-label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 7px;
+  }
+  .form-input {
+    width: 100%;
+    padding: 13px 16px;
+    background: var(--darker);
+    border: 2px solid #ffffff10;
+    border-radius: 12px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.95rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .form-input:focus { border-color: var(--yellow); }
+ 
+  .form-submit {
+    width: 100%;
+    padding: 14px;
+    background: var(--yellow);
+    color: var(--dark);
+    border: none;
+    border-radius: 12px;
+    font-family: 'Dela Gothic One', sans-serif;
+    font-size: 1rem;
+    cursor: pointer;
+    margin-top: 8px;
+    transition: all 0.2s;
+  }
+  .form-submit:hover { background: #ffe000; transform: translateY(-1px); }
+ 
+  .register-panel { display: none; }
+  .register-panel.active { display: block; }
+  .login-panel { display: block; }
+  .login-panel.hidden { display: none; }
+ 
+  /* ─────────────────────────────────────────
+     PROFILE PAGE — MAIN WRAPPER
+     Only accessible when isLoggedIn = true (enforced in JS).
+     In PHP this entire page will be protected by a session check:
+       if (!isset($_SESSION['user_id'])) { header('Location: auth.php'); exit; }
+     The three columns in profile-top are: avatar | user info | favorite picks
+  ───────────────────────────────────────── */
+  .profile-wrap {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 40px 48px;
+  }
+ 
+  /* Three-column top layout: [avatar] [name/bio/stats] [favorite picks] */
+  .profile-top {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 32px;
+    align-items: start;
+    margin-bottom: 40px;
+  }
+ 
+  /* Avatar block — placeholder emoji for now.
+     In PHP this will be an <img> tag pulling from the users table:
+       <img src="<?= $user['avatar_url'] ?>"> */
+  .profile-avatar-block { position: relative; }
+  .profile-avatar {
+    width: 120px; height: 120px;
+    border-radius: 20px;
+    background: linear-gradient(135deg, var(--green) 0%, var(--teal) 100%);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 3rem;
+    border: 3px solid var(--yellow);
+    box-shadow: 0 0 0 6px #F5E64220;
+  }
+  /* Display name pulled from users.username in PHP */
+  .profile-name {
+    font-family: 'Dela Gothic One', sans-serif;
+    font-size: 2rem;
+    margin-bottom: 4px;
+  }
+  .profile-handle {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--teal);
+    margin-bottom: 14px;
+  }
+  /* Bio text pulled from users.bio in PHP */
+  .profile-bio {
+    font-size: 0.9rem;
+    color: var(--muted);
+    line-height: 1.6;
+    max-width: 420px;
+    background: var(--card);
+    padding: 14px 18px;
+    border-radius: 12px;
+    border-left: 3px solid var(--yellow);
+  }
+  /* Stats row: total songs, avg rating, songs this month
+     These will be computed with SQL COUNT() and AVG() queries in PHP */
+  .profile-stats {
+    display: flex;
+    gap: 24px;
+    margin-top: 16px;
+  }
+  .stat { text-align: center; }
+  .stat-num {
+    font-family: 'Dela Gothic One', sans-serif;
+    font-size: 1.4rem;
+    color: var(--yellow);
+  }
+  .stat-label { font-size: 0.72rem; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+ 
+  /* ─────────────────────────────────────────
+     FAVORITE PICKS GRID --03/20/26
+     2x2 grid of pinned songs shown top-right of the profile.
+     In PHP, tiles are pulled from a favorites or user_songs table
+     where is_favorite = 1, limited to 4 rows.
+  ───────────────────────────────────────── */
+  .fav-section {}
+  .fav-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 3px;
+    color: var(--muted);
+    text-transform: uppercase;
+    text-align: right;
+    margin-bottom: 10px;
+  }
+  .fav-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    width: 220px;
+  }
+  .fav-tile {
+    border-radius: 12px;
+    padding: 14px 12px;
+    font-family: 'Dela Gothic One', sans-serif;
+    font-size: 0.78rem;
+    line-height: 1.3;
+    cursor: pointer;
+    transition: transform 0.18s;
+    min-height: 70px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+  }
+  .fav-tile:hover { transform: scale(1.04); }
+  .fav-tile .ft-name { font-size: 0.76rem; }
+  .fav-tile .ft-artist { font-size: 0.62rem; opacity: 0.7; font-family: 'DM Sans', sans-serif; font-weight: 400; }
+  .ft-1 { background: var(--green); color: var(--dark); }
+  .ft-2 { background: var(--blue);  color: #fff; }
+  .ft-3 { background: var(--purple); color: #fff; }
+  .ft-4 { background: var(--orange); color: var(--dark); }
+ 
+  /* Add button */
+  .add-song-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 22px;
+    background: var(--yellow);
+    color: var(--dark);
+    border: none;
+    border-radius: 12px;
+    font-family: 'Dela Gothic One', sans-serif;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 16px;
+  }
+  .add-song-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px #F5E64240; }
+ 
+  /* Divider */
+  .profile-divider {
+    background: var(--card);
+    border-radius: 4px;
+    height: 2px;
+    margin-bottom: 32px;
+    position: relative;
+    overflow: hidden;
+  }
+  .profile-divider::after {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; height: 100%;
+    width: 40%;
+    background: linear-gradient(90deg, var(--yellow), var(--pink), var(--teal));
+    border-radius: 4px;
+  }
+ 
+  /* Recent listens header */
+  .recent-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .recent-heading {
+    font-family: 'Dela Gothic One', sans-serif;
+    font-size: 1.4rem;
+  }
+  .filter-pills { display: flex; gap: 8px; }
+  .pill {
+    padding: 6px 16px;
+    border-radius: 100px;
+    border: 2px solid #ffffff15;
+    background: none;
+    color: var(--muted);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .pill.active, .pill:hover { border-color: var(--yellow); color: var(--yellow); }
+ 
+  /* Row labels */
+  .song-table-head {
+    display: grid;
+    grid-template-columns: 32px 1fr 140px 90px 80px 1fr;
+    gap: 16px;
+    padding: 0 20px 10px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+ 
+  /* Add song modal */
+  .add-modal {
+    background: var(--card);
+    border-radius: 24px;
+    padding: 40px;
+    width: 460px;
+    max-width: 95vw;
+    border: 1px solid #ffffff15;
+    position: relative;
+  }
+  .add-modal-title {
+    font-family: 'Dela Gothic One', sans-serif;
+    font-size: 1.4rem;
+    margin-bottom: 24px;
+  }
+  .color-picker-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 6px;
+  }
+  .color-swatch {
+    width: 28px; height: 28px;
+    border-radius: 8px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: transform 0.15s;
+  }
+  .color-swatch:hover, .color-swatch.selected { transform: scale(1.2); border-color: #fff; }
+  .star-row { display: flex; gap: 6px; margin-top: 6px; }
+  .star-btn {
+    font-size: 1.4rem; background: none; border: none;
+    cursor: pointer; color: #ffffff25;
+    transition: color 0.15s;
+  }
+  .star-btn.lit { color: var(--yellow); }
+ 
+  /* footer */
+  footer {
+    text-align: center;
+    padding: 40px;
+    color: var(--muted);
+    font-size: 0.8rem;
+    font-family: 'Space Mono', monospace;
+    border-top: 1px solid #ffffff08;
+  }
+ 
+  /* ══════════════════════════════════
+     AUTH PAGE
+  ══════════════════════════════════ */
+  .auth-wrap {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    min-height: calc(100vh - 69px);
+  }
+ 
+  /* Left branding panel */
+  .auth-left {
+    background: var(--dark);
+    padding: 60px 52px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    border-right: 1px solid #ffffff08;
+    position: relative;
+    overflow: hidden;
+  }
+  .auth-left::before {
+    content: '';
+    position: absolute;
+    top: -80px; right: -80px;
+    width: 320px; height: 320px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #F5E64215, transparent 70%);
+  }
+  .auth-brand {
+    font-family: 'Dela Gothic One', sans-serif;
+    font-size: 2.6rem;
+    background: linear-gradient(90deg, var(--yellow), var(--pink), var(--teal));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 32px;
+  }
+  .auth-tagline {
+    font-family: 'Dela Gothic One', sans-serif;
+    font-size: 2.4rem;
+    line-height: 1.15;
+    margin-bottom: 20px;
+  }
+  .auth-left-sub {
+    font-size: 0.95rem;
+    color: var(--muted);
+    line-height: 1.7;
+    margin-bottom: 40px;
+    max-width: 380px;
+  }
+  .auth-song-strip {
+    padding: 11px 16px;
+    border-radius: 10px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.72rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+    letter-spacing: 0.5px;
+    animation: slideIn 0.5s ease both;
+  }
+  .auth-song-strip:nth-child(5) { animation-delay: 0.1s; }
+  .auth-song-strip:nth-child(6) { animation-delay: 0.2s; }
+  .auth-song-strip:nth-child(7) { animation-delay: 0.3s; }
+  .auth-song-strip:nth-child(8) { animation-delay: 0.4s; }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(-16px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  .as-yellow  { background: var(--yellow);   color: var(--dark); }
+  .as-pink    { background: var(--pink);     color: #fff; }
+  .as-teal    { background: var(--teal);     color: var(--dark); }
+  .as-lavender{ background: var(--lavender); color: var(--dark); }
+ 
+  /* Right form panel */
+  .auth-right {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 40px;
+    background: var(--darker);
+  }
+  .auth-card {
+    width: 100%;
+    max-width: 420px;
+  }
+  .auth-welcome {
+    font-family: 'Dela Gothic One', sans-serif;
+    font-size: 1.7rem;
+    margin-bottom: 6px;
+  }
+  .auth-welcome-sub {
+    font-size: 0.9rem;
+    color: var(--muted);
+    margin-bottom: 28px;
+  }
+  .pw-wrap { position: relative; }
+  .pw-toggle {
+    position: absolute;
+    right: 14px; top: 50%;
+    transform: translateY(-50%);
+    background: none; border: none;
+    cursor: pointer; font-size: 1rem;
+    opacity: 0.5;
+    transition: opacity 0.15s;
+  }
+  .pw-toggle:hover { opacity: 1; }
+  .pw-strength-bar {
+    height: 4px;
+    background: #ffffff10;
+    border-radius: 4px;
+    margin-top: 8px;
+    overflow: hidden;
+  }
+  #pw-strength-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 4px;
+    transition: width 0.3s, background 0.3s;
+  }
+  .pw-strength-label {
+    font-size: 0.72rem;
+    margin-top: 4px;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+  }
+  .auth-note {
+    background: var(--card);
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 0.78rem;
+    color: var(--muted);
+    line-height: 1.6;
+    margin-bottom: 18px;
+    border-left: 3px solid var(--teal);
+  }
+  .auth-note code {
+    background: var(--darker);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    color: var(--teal);
+  }
+  .auth-error {
+    color: var(--pink);
+    font-size: 0.82rem;
+    font-family: 'Space Mono', monospace;
+    margin-bottom: 12px;
+    min-height: 18px;
+  }
+  .auth-switch {
+    text-align: center;
+    margin-top: 20px;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .auth-switch span {
+    color: var(--yellow);
+    cursor: pointer;
+    font-weight: 700;
+    text-decoration: underline;
+  }
+  .auth-switch span:hover { color: #ffe000; }
+ 
+  /* Responsive */
+  @media (max-width: 768px) {
+    .auth-wrap { grid-template-columns: 1fr; }
+    .auth-left { display: none; }
+    .auth-right { padding: 32px 20px; align-items: flex-start; padding-top: 40px; }
+ 
+    .hero { grid-template-columns: 1fr; padding: 40px 20px; gap: 40px; }
+    .hero-title { font-size: 2.2rem; }
+    .features { grid-template-columns: 1fr; padding: 0 20px; }
+    .section-block { padding: 0 20px; }
+    .profile-wrap { padding: 24px 20px; }
+    .profile-top { grid-template-columns: 1fr; }
+    .fav-grid { width: 100%; }
+    .song-row { grid-template-columns: 28px 1fr 80px 60px; }
+    .song-row .row-note, .song-row .row-rating { display: none; }
+    .song-table-head { display: none; }
+  }
+</style>
+</head>
+<body>
+ 
+<!-- ── NAV ── -->
+<nav>
+  <span class="nav-logo">SYL</span>
+  <div class="nav-links" id="nav-logged-out">
+    <button class="nav-btn ghost" onclick="showPage('home')">Home</button>
+    <button class="nav-btn ghost" onclick="goToAuth('login')">Log In</button>
+    <button class="nav-btn primary" onclick="goToAuth('register')">Sign Up</button>
+  </div>
+  <div class="nav-links" id="nav-logged-in" style="display:none;">
+    <button class="nav-btn ghost" onclick="showPage('home')">Home</button>
+    <button class="nav-btn ghost" onclick="showPage('profile')">My Page</button>
+    <button class="nav-btn primary" onclick="handleLogout()">Log Out</button>
+  </div>
+</nav>
+ 
+<!-- ══════════════════════════════════
+     HOME PAGE
+══════════════════════════════════ -->
+<div id="page-home" class="page active">
+ 
+  <!-- Hero -->
+  <section class="hero">
+    <div>
+      <p class="hero-eyebrow">🎵 Save Your Listens</p>
+      <h1 class="hero-title">Your music,<br><span>your voice.</span></h1>
+      <p class="hero-sub">Log what you listen to, rate it, leave your thoughts, and share your musical taste with the world — or just keep it for yourself.</p>
+      <div class="hero-cta">
+        <button class="cta-btn big" onclick="goToAuth('register')">Get Started — It's Free</button>
+        <button class="cta-btn outline" onclick="goToAuth('login')">Log In</button>
+      </div>
+    </div>
+ 
+    <!-- Mini preview card -->
+    <div class="hero-preview">
+      <div class="preview-header">
+        <div class="preview-dots">
+          <span class="dot-r"></span><span class="dot-y"></span><span class="dot-g"></span>
+        </div>
+        <span class="preview-title-bar">joshm.syl.app</span>
+      </div>
+      <div class="preview-body">
+        <div class="preview-user-row">
+          <div class="preview-avatar">🎧</div>
+          <div>
+            <div class="preview-username">joshm</div>
+            <div class="preview-handle">recent listens · 5 songs</div>
+          </div>
+        </div>
+        <div class="preview-song ps-1"><span class="snum">01</span><span class="sname">Blinding Lights</span><span class="sartist">The Weeknd</span><span class="srating">★ 5.0</span></div>
+        <div class="preview-song ps-2"><span class="snum">02</span><span class="sname">As It Was</span><span class="sartist">Harry Styles</span><span class="srating">★ 4.5</span></div>
+        <div class="preview-song ps-3"><span class="snum">03</span><span class="sname">Levitating</span><span class="sartist">Dua Lipa</span><span class="srating">★ 4.0</span></div>
+        <div class="preview-song ps-4"><span class="snum">04</span><span class="sname">Peaches</span><span class="sartist">Justin Bieber</span><span class="srating">★ 3.5</span></div>
+        <div class="preview-song ps-5"><span class="snum">05</span><span class="sname">Stay</span><span class="sartist">The Kid LAROI</span><span class="srating">★ 4.0</span></div>
+      </div>
+    </div>
+  </section>
+ 
+  <!-- Features -->
+  <section class="features">
+    <div class="feat-card">
+      <span class="feat-icon">🎵</span>
+      <div class="feat-title">Log Your Listens</div>
+      <p class="feat-desc">Add any song you've heard. Write notes, give it a rating, and track your musical journey over time.</p>
+    </div>
+    <div class="feat-card">
+      <span class="feat-icon">⭐</span>
+      <div class="feat-title">Favorite Picks</div>
+      <p class="feat-desc">Pin up to 4 songs as your top picks. They sit front-and-center on your profile for everyone to see.</p>
+    </div>
+    <div class="feat-card">
+      <span class="feat-icon">🔗</span>
+      <div class="feat-title">Embeddable Widget</div>
+      <p class="feat-desc">Drop your top 5 list into any blog, Instagram bio, or personal site with a simple embed snippet.</p>
+    </div>
+  </section>
+ 
+  <!-- Recent listens sample -->
+  <section class="section-block">
+    <p class="section-label">Community</p>
+    <h2 class="section-heading">What people are listening to</h2>
+ 
+    <div class="song-table-head">
+      <span>#</span><span>Song</span><span>Artist</span><span>Duration</span><span>Rating</span><span>Note</span>
+    </div>
+ 
+    <div class="song-row sr-yellow"><span class="row-num">1</span><span class="row-name">Espresso</span><span class="row-artist">Sabrina Carpenter</span><span class="row-dur">2:55</span><span class="row-rating">★ 5.0</span><span class="row-note">this song never leaves my head</span></div>
+    <div class="song-row sr-sand"><span class="row-num">2</span><span class="row-name">luther</span><span class="row-artist">Kendrick Lamar ft. SZA</span><span class="row-dur">4:22</span><span class="row-rating">★ 5.0</span><span class="row-note">best collab in years honestly</span></div>
+    <div class="song-row sr-pink"><span class="row-num">3</span><span class="row-name">Die With A Smile</span><span class="row-artist">Lady Gaga & Bruno Mars</span><span class="row-dur">4:11</span><span class="row-rating">★ 4.5</span><span class="row-note">emotional at 2am every time</span></div>
+    <div class="song-row sr-teal"><span class="row-num">4</span><span class="row-name">Stargazing</span><span class="row-artist">Myles Smith</span><span class="row-dur">3:40</span><span class="row-rating">★ 4.0</span><span class="row-note">underrated find, glad i discovered it</span></div>
+    <div class="song-row sr-lavender"><span class="row-num">5</span><span class="row-name">APT.</span><span class="row-artist">Rose & Bruno Mars</span><span class="row-dur">2:54</span><span class="row-rating">★ 4.5</span><span class="row-note">certified banger, no notes</span></div>
+  </section>
+ 
+  <footer>SYL — Save Your Listens · Built for music lovers · © 2026</footer>
+</div>
+ 
+ 
+<!-- ══════════════════════════════════
+     PROFILE PAGE --03/22/26
+══════════════════════════════════ -->
+<div id="page-profile" class="page">
+  <div class="profile-wrap">
+ 
+    <!-- Top -->
+    <div class="profile-top">
+ 
+      <!-- Avatar -->
+      <div class="profile-avatar-block">
+        <div class="profile-avatar">🎧</div>
+      </div>
+ 
+      <!-- Info -->
+      <div>
+        <div class="profile-name">Josh M.</div>
+        <div class="profile-handle">@joshm · joshm.syl.app</div>
+        <div class="profile-bio">
+          cs student by day, music obsessive by night. i log everything i listen to. big on r&amp;b, rap, and whatever Spotify throws at me on a Tuesday.
+        </div>
+        <div class="profile-stats">
+          <div class="stat"><div class="stat-num">84</div><div class="stat-label">Songs Logged</div></div>
+          <div class="stat"><div class="stat-num">4.2</div><div class="stat-label">Avg Rating</div></div>
+          <div class="stat"><div class="stat-num">12</div><div class="stat-label">This Month</div></div>
+        </div>
+        <button class="add-song-btn" onclick="openModal('addModal')">
+          <span>+</span> Add New Song
+        </button>
+      </div>
+ 
+      <!-- Favorite Picks -->
+      <div class="fav-section">
+        <div class="fav-label">⭐ Favorite Picks</div>
+        <div class="fav-grid">
+          <div class="fav-tile ft-1"><span class="ft-name">luther</span><span class="ft-artist">Kendrick & SZA</span></div>
+          <div class="fav-tile ft-2"><span class="ft-name">Blinding Lights</span><span class="ft-artist">The Weeknd</span></div>
+          <div class="fav-tile ft-3"><span class="ft-name">Espresso</span><span class="ft-artist">Sabrina Carpenter</span></div>
+          <div class="fav-tile ft-4"><span class="ft-name">APT.</span><span class="ft-artist">Rose & Bruno Mars</span></div>
+        </div>
+      </div>
+ 
+    </div>
+ 
+    <div class="profile-divider"></div>
+ 
+    <!-- Recent listens -->
+    <div class="recent-header">
+      <h2 class="recent-heading">Recent Listens</h2>
+      <div class="filter-pills">
+        <button class="pill active">All</button>
+        <button class="pill">Top Rated</button>
+        <button class="pill">This Week</button>
+      </div>
+    </div>
+ 
+    <div class="song-table-head">
+      <span>#</span><span>Song</span><span>Artist</span><span>Duration</span><span>Rating</span><span>Note</span>
+    </div>
+ 
+    <div class="song-row sr-yellow"><span class="row-num">1</span><span class="row-name">luther</span><span class="row-artist">Kendrick Lamar ft. SZA</span><span class="row-dur">4:22</span><span class="row-rating">★ 5.0</span><span class="row-note">best collab in years honestly</span></div>
+    <div class="song-row sr-sand"><span class="row-num">2</span><span class="row-name">Espresso</span><span class="row-artist">Sabrina Carpenter</span><span class="row-dur">2:55</span><span class="row-rating">★ 5.0</span><span class="row-note">this song never leaves my head</span></div>
+    <div class="song-row sr-pink"><span class="row-num">3</span><span class="row-name">Die With A Smile</span><span class="row-artist">Lady Gaga & Bruno Mars</span><span class="row-dur">4:11</span><span class="row-rating">★ 4.5</span><span class="row-note">emotional every single time</span></div>
+    <div class="song-row sr-teal"><span class="row-num">4</span><span class="row-name">APT.</span><span class="row-artist">Rose & Bruno Mars</span><span class="row-dur">2:54</span><span class="row-rating">★ 4.5</span><span class="row-note">certified banger, no notes</span></div>
+    <div class="song-row sr-lavender"><span class="row-num">5</span><span class="row-name">Stargazing</span><span class="row-artist">Myles Smith</span><span class="row-dur">3:40</span><span class="row-rating">★ 4.0</span><span class="row-note">underrated find of the month</span></div>
+ 
+  </div>
+  <footer>SYL — Save Your Listens · Built for music lovers · © 2026</footer>
+</div>
+ 
+ 
+<!-- ══════════════════════════════════
+     AUTH PAGE (Login / Sign Up) --come back to this --03/22/26
+══════════════════════════════════ -->
+<div id="page-auth" class="page">
+  <div class="auth-wrap">
+ 
+    <!-- Left panel — branding -->
+    <div class="auth-left">
+      <div class="auth-brand" onclick="showPage('home')" style="cursor:pointer;">SYL</div>
+      <h2 class="auth-tagline">Your music.<br>Your voice.<br>Your list.</h2>
+      <p class="auth-left-sub">Log what you listen to, rate it, leave your thoughts, and share your taste with the world.</p>
+ 
+      <!-- Decorative song strips -->
+      <div class="auth-song-strip as-yellow">Espresso · Sabrina Carpenter · ★ 5.0</div>
+      <div class="auth-song-strip as-pink">luther · Kendrick ft. SZA · ★ 5.0</div>
+      <div class="auth-song-strip as-teal">APT. · Rose & Bruno Mars · ★ 4.5</div>
+      <div class="auth-song-strip as-lavender">Blinding Lights · The Weeknd · ★ 5.0</div>
+    </div>
+ 
+    <!-- Right panel — form -->
+    <div class="auth-right">
+      <div class="auth-card">
+ 
+        <!-- Tab switcher -->
+        <div class="tab-row">
+          <button class="tab" id="auth-tab-login" onclick="switchAuthTab('login')">Log In</button>
+          <button class="tab" id="auth-tab-register" onclick="switchAuthTab('register')">Sign Up</button>
+        </div>
+ 
+        <!-- ── LOGIN FORM ── -->
+        <div id="auth-login-panel">
+          <div class="auth-welcome">Welcome back 👋</div>
+          <div class="auth-welcome-sub">Sign in to your SYL account</div>
+ 
+          <div class="form-group">
+            <label class="form-label">Username or Email</label>
+            <input class="form-input" id="login-identifier" type="text" placeholder="joshm or yourname@email.com">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Password</label>
+            <div class="pw-wrap">
+              <input class="form-input" id="login-password" type="password" placeholder="••••••••">
+              <button class="pw-toggle" onclick="togglePw('login-password', this)">👁</button>
+            </div>
+          </div>
+          <div class="auth-error" id="login-error"></div>
+          <button class="form-submit" onclick="handleLogin()">Log In →</button>
+          <div class="auth-switch">Don't have an account? <span onclick="switchAuthTab('register')">Sign Up</span></div>
+        </div>
+ 
+        <!-- ── REGISTER FORM ── -->
+        <div id="auth-register-panel" style="display:none;">
+          <div class="auth-welcome">Create your account ✨</div>
+          <div class="auth-welcome-sub">It's free — start logging your listens</div>
+ 
+          <div class="form-group">
+            <label class="form-label">Username</label>
+            <input class="form-input" id="reg-username" type="text" placeholder="joshm">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input class="form-input" id="reg-email" type="email" placeholder="yourname@email.com">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Password</label>
+            <div class="pw-wrap">
+              <input class="form-input" id="reg-password" type="password" placeholder="Min. 8 characters">
+              <button class="pw-toggle" onclick="togglePw('reg-password', this)">👁</button>
+            </div>
+            <div class="pw-strength-bar"><div id="pw-strength-fill"></div></div>
+            <div class="pw-strength-label" id="pw-strength-label"></div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Confirm Password</label>
+            <div class="pw-wrap">
+              <input class="form-input" id="reg-confirm" type="password" placeholder="••••••••">
+              <button class="pw-toggle" onclick="togglePw('reg-confirm', this)">👁</button>
+            </div>
+          </div>
+          <div class="auth-error" id="reg-error"></div>
+          <button class="form-submit" onclick="handleRegister()">Create Account →</button>
+          <div class="auth-switch">Already have an account? <span onclick="switchAuthTab('login')">Log In</span></div>
+        </div>
+ 
+      </div>
+    </div>
+  </div>
+</div>
+ 
+ 
+<!-- ══════════════════════════════════
+     ADD SONG MODAL
+══════════════════════════════════ -->
+<div class="modal-overlay" id="addModal" onclick="closeIfBg(event,'addModal')">
+  <div class="add-modal">
+    <button class="modal-close" onclick="closeModal('addModal')">✕</button>
+    <div class="add-modal-title">+ Add a Song</div>
+ 
+    <div class="form-group">
+      <label class="form-label">Song Name</label>
+      <input class="form-input" type="text" placeholder="e.g. Blinding Lights">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Artist</label>
+      <input class="form-input" type="text" placeholder="e.g. The Weeknd">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Album</label>
+      <input class="form-input" type="text" placeholder="e.g. After Hours">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Duration (min:sec)</label>
+      <input class="form-input" type="text" placeholder="3:22">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Rating</label>
+      <div class="star-row" id="starRow">
+        <button class="star-btn" onclick="setRating(1)">★</button>
+        <button class="star-btn" onclick="setRating(2)">★</button>
+        <button class="star-btn" onclick="setRating(3)">★</button>
+        <button class="star-btn" onclick="setRating(4)">★</button>
+        <button class="star-btn" onclick="setRating(5)">★</button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Row Color</label>
+      <div class="color-picker-row">
+        <div class="color-swatch selected" style="background:var(--yellow)" onclick="selectColor(this)"></div>
+        <div class="color-swatch" style="background:var(--pink)" onclick="selectColor(this)"></div>
+        <div class="color-swatch" style="background:var(--teal)" onclick="selectColor(this)"></div>
+        <div class="color-swatch" style="background:var(--lavender)" onclick="selectColor(this)"></div>
+        <div class="color-swatch" style="background:var(--sand)" onclick="selectColor(this)"></div>
+        <div class="color-swatch" style="background:var(--orange)" onclick="selectColor(this)"></div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Your Notes</label>
+      <input class="form-input" type="text" placeholder="What did you think?">
+    </div>
+    <button class="form-submit" onclick="closeModal('addModal')">Save Song →</button>
+  </div>
+</div>
+ 
+ 
+<script>
+  /* =====================================================
+     JAVASCRIPT — SYL Frontend Logic --03/23/26
+     This file handles all client-side behavior:
+       1. Page routing (which page is visible)
+       2. Auth state (logged in or out)
+       3. Form validation (login & register)
+       4. UI interactions (modals, stars, color picker)
+ 
+     NOTE: Nothing here talks to a database yet.
+     All data is temporary and lives only in this browser tab.
+     When PHP is wired up, the TODO comments below mark
+     exactly where fetch() calls to .php files will go.
+  ===================================================== */
+ 
+  /* ─────────────────────────────────────────
+     AUTH STATE
+     Simple boolean that tracks whether the user is logged in.
+     In the PHP version, this check will instead look at
+     whether $_SESSION['user_id'] exists server-side.
+     isLoggedIn flips to true after a successful login/register,
+     and back to false on logout.
+  ───────────────────────────────────────── */
+  let isLoggedIn = false;
+ 
+  /* ─────────────────────────────────────────
+     PAGE ROUTING — showPage(id)
+     Hides all pages, then makes the requested one visible
+     by adding the "active" CSS class to it.
+     Includes a guard: if someone tries to go to the profile
+     page while logged out, they get redirected to the auth page.
+  ───────────────────────────────────────── */
+  function showPage(id) {
+    // Guard: profile requires login
+    if (id === 'profile' && !isLoggedIn) {
+      goToAuth('login');
+      return;
+    }
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById('page-' + id).classList.add('active');
+    window.scrollTo(0, 0);
+  }
+ 
+  /* ─────────────────────────────────────────
+     AUTH PAGE REDIRECT — goToAuth(tab)
+     Navigates to the auth page and pre-selects
+     either the "login" or "register" tab.
+     Called by nav buttons and hero CTAs.
+  ───────────────────────────────────────── */
+  function goToAuth(tab) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById('page-auth').classList.add('active');
+    switchAuthTab(tab);
+    window.scrollTo(0, 0);
+  }
+ 
+  /* ─────────────────────────────────────────
+     AUTH TAB SWITCHER — switchAuthTab(tab)
+     Toggles between the Log In and Sign Up panels
+     on the auth page. Also clears any error messages
+     left over from a previous attempt.
+  ───────────────────────────────────────── */
+  function switchAuthTab(tab) {
+    const isLogin = tab === 'login';
+    document.getElementById('auth-login-panel').style.display    = isLogin ? 'block' : 'none';
+    document.getElementById('auth-register-panel').style.display = isLogin ? 'none'  : 'block';
+    document.getElementById('auth-tab-login').classList.toggle('active', isLogin);
+    document.getElementById('auth-tab-register').classList.toggle('active', !isLogin);
+    // Clear any lingering error messages when switching tabs
+    document.getElementById('login-error').textContent = '';
+    document.getElementById('reg-error').textContent   = '';
+  }
+ 
+  /* ─────────────────────────────────────────
+     LOGIN HANDLER — handleLogin()--03/25/26
+     Validates the login form fields on the client side,
+     then simulates a successful login for the prototype.
+ 
+     TODO (PHP integration):
+       Replace the loginSuccess() call below with:
+         const formData = new FormData();
+         formData.append('identifier', id);
+         formData.append('password', pw);
+         fetch('/api/login.php', { method: 'POST', body: formData })
+           .then(res => res.json())
+           .then(data => {
+             if (data.success) loginSuccess();
+             else err.textContent = data.message;
+           });
+       login.php will use password_verify() against the hashed
+       password stored in the users table, then set $_SESSION['user_id'].
+  ───────────────────────────────────────── */
+  function handleLogin() {
+    const id  = document.getElementById('login-identifier').value.trim();
+    const pw  = document.getElementById('login-password').value;
+    const err = document.getElementById('login-error');
+ 
+    // Client-side validation — basic empty field checks
+    if (!id)  { err.textContent = '⚠ Please enter your username or email.'; return; }
+    if (!pw)  { err.textContent = '⚠ Please enter your password.'; return; }
+ 
+    // TODO: replace with PHP fetch('/api/login.php', ...) and session handling
+    // For now, simulate successful login
+    err.textContent = '';
+    loginSuccess();
+  }
+ 
+  /* ─────────────────────────────────────────
+     REGISTER HANDLER — handleRegister()
+     Validates the sign-up form, then simulates registration.
+ 
+     TODO (PHP integration):
+       Replace the loginSuccess() call below with:
+         fetch('/api/register.php', { method: 'POST', body: formData })
+           .then(res => res.json())
+           .then(data => { ... });
+       register.php will use password_hash($pw, PASSWORD_BCRYPT)
+       before inserting a new row into the users table.
+  ───────────────────────────────────────── */
+  function handleRegister() {
+    const username = document.getElementById('reg-username').value.trim();
+    const email    = document.getElementById('reg-email').value.trim();
+    const pw       = document.getElementById('reg-password').value;
+    const confirm  = document.getElementById('reg-confirm').value;
+    const err      = document.getElementById('reg-error');
+ 
+    // Client-side validation checks (server-side will repeat these in PHP)
+    if (!username) { err.textContent = '⚠ Username is required.'; return; }
+    if (!email || !email.includes('@')) { err.textContent = '⚠ Enter a valid email address.'; return; }
+    if (pw.length < 8) { err.textContent = '⚠ Password must be at least 8 characters.'; return; }
+    if (pw !== confirm) { err.textContent = '⚠ Passwords do not match.'; return; }
+ 
+    // TODO: replace with PHP fetch('/api/register.php', ...) and password_hash()
+    // For now, simulate successful registration
+    err.textContent = '';
+    loginSuccess();
+  }
+ 
+  /* ─────────────────────────────────────────
+     LOGIN SUCCESS — loginSuccess()
+     Called after a successful login or registration.
+     - Sets isLoggedIn to true
+     - Swaps the nav from logged-out buttons to logged-in buttons
+     - Navigates to the profile page
+     In PHP, this state will be managed by $_SESSION instead.
+  ───────────────────────────────────────── */
+  function loginSuccess() {
+    isLoggedIn = true;
+    document.getElementById('nav-logged-out').style.display = 'none';
+    document.getElementById('nav-logged-in').style.display  = 'flex';
+    showPage('profile');
+  }
+ 
+  /* ─────────────────────────────────────────
+     LOGOUT — handleLogout()
+     Resets auth state and returns user to the home page.
+     In PHP this will also call session_destroy() to
+     clear the server-side session.
+  ───────────────────────────────────────── */
+  function handleLogout() {
+    isLoggedIn = false;
+    document.getElementById('nav-logged-out').style.display = 'flex';
+    document.getElementById('nav-logged-in').style.display  = 'none';
+    showPage('home');
+  }
+ 
+  /* ─────────────────────────────────────────
+     PASSWORD VISIBILITY TOGGLE — togglePw()
+     Switches a password input between type="password"
+     and type="text" so the user can see what they typed.
+     The eye button opacity changes to give visual feedback.
+  ───────────────────────────────────────── */
+  function togglePw(inputId, btn) {
+    const input = document.getElementById(inputId);
+    const isHidden = input.type === 'password';
+    input.type = isHidden ? 'text' : 'password';
+    btn.style.opacity = isHidden ? '1' : '0.5';
+  }
+ 
+  /* ─────────────────────────────────────────
+     PASSWORD STRENGTH METER
+     Listens to keystrokes on the register password field
+     and scores the password on 4 criteria:
+       - 8+ characters
+       - Contains uppercase letter
+       - Contains a number
+       - Contains a special character
+     Updates a colored progress bar and label in real time.
+     This is UI-only — actual strength enforcement happens in PHP.
+  ───────────────────────────────────────── */
+  document.getElementById('reg-password').addEventListener('input', function() {
+    const pw = this.value;
+    const fill  = document.getElementById('pw-strength-fill');
+    const label = document.getElementById('pw-strength-label');
+    let score = 0;
+    if (pw.length >= 8)           score++; // length check
+    if (/[A-Z]/.test(pw))         score++; // uppercase check
+    if (/[0-9]/.test(pw))         score++; // number check
+    if (/[^A-Za-z0-9]/.test(pw))  score++; // special character check
+ 
+    // Map score (0-4) to visual feedback
+    const levels = [
+      { w: '0%',   color: 'transparent', text: '' },
+      { w: '25%',  color: '#F06292',     text: 'Weak' },
+      { w: '50%',  color: '#FF8A50',     text: 'Fair' },
+      { w: '75%',  color: '#F5E642',     text: 'Good' },
+      { w: '100%', color: '#69D17E',     text: 'Strong ✓' },
+    ];
+    const lvl = pw.length === 0 ? 0 : Math.max(1, score);
+    fill.style.width      = levels[lvl].w;
+    fill.style.background = levels[lvl].color;
+    label.textContent     = levels[lvl].text;
+  });
+ 
+  /* ─────────────────────────────────────────
+     ADD SONG MODAL — openModal / closeModal
+     Controls the "Add a Song" popup overlay.
+     openModal() makes it visible, closeModal() hides it.
+     closeIfBg() closes it when clicking outside the card.
+ 
+     NOTE: The form inside does not save anything yet.
+     TODO (PHP): The "Save Song" button will POST to add_song.php
+     which will INSERT a row into the reviews table linked
+     to the logged-in user's session ID.
+  ───────────────────────────────────────── */
+  function openModal(id) {
+    document.getElementById(id).classList.add('open');
+  }
+  function closeModal(id) {
+    document.getElementById(id).classList.remove('open');
+  }
+  function closeIfBg(e, id) {
+    // Only close if the click was on the dark overlay itself, not the card
+    if (e.target === document.getElementById(id)) closeModal(id);
+  }
+ 
+  /* ─────────────────────────────────────────
+     STAR RATING SELECTOR — setRating(n)
+     Highlights stars 1 through n when a star is clicked.
+     Visual only — the selected rating value will need to be
+     read and submitted with the form when PHP is connected.
+  ───────────────────────────────────────── */
+  function setRating(n) {
+    const stars = document.querySelectorAll('#starRow .star-btn');
+    stars.forEach((s, i) => s.classList.toggle('lit', i < n));
+  }
+ 
+  /* ─────────────────────────────────────────
+     ROW COLOR PICKER — selectColor(el)
+     Lets the user choose a highlight color for their song row.
+     Marks the clicked swatch as selected (white border).
+     The chosen color will be stored as a string in the
+     reviews table color column when PHP is connected.
+  ───────────────────────────────────────── */
+  function selectColor(el) {
+    document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+    el.classList.add('selected');
+  }
+ 
+  /* ─────────────────────────────────────────
+     FILTER PILLS — All / Top Rated / This Week
+     Toggles the active state on the profile page filter buttons.
+     Currently visual only — no filtering logic is applied.
+     TODO: When connected to PHP, clicking a pill will re-fetch
+     song rows from the DB with a different ORDER BY or WHERE clause.
+  ───────────────────────────────────────── */
+  document.querySelectorAll('.pill').forEach(p => {
+    p.addEventListener('click', () => {
+      document.querySelectorAll('.pill').forEach(x => x.classList.remove('active'));
+      p.classList.add('active');
+    });
+  });
+ 
+  // Initialize the auth page with the login tab selected by default
+  switchAuthTab('login');
+</script>
+</body>
+</html>
