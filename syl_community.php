@@ -223,7 +223,8 @@ footer{text-align:center;padding:32px 40px;color:var(--muted);font-size:.75rem;f
   <nav class="sb-nav">
     <a class="sb-link "      href="syl_home.php"      data-label="home">      <span class="sb-icon">&#127968;</span><span class="sb-label">Home</span></a>
     <a class="sb-link "     href="syl_songs.php"     data-label="songs">     <span class="sb-icon">&#127925;</span><span class="sb-label">Songs</span></a>
-    
+    <a class="sb-link" href="syl_friends.php"   data-label="friends">   <span class="sb-icon">&#128101;</span><span class="sb-label">Friends</span></a>
+
     <a class="sb-link active" href="syl_community.php" data-label="community"><span class="sb-icon">&#127758;</span><span class="sb-label">Community</span></a>
   </nav>
   <div class="sb-bottom">
