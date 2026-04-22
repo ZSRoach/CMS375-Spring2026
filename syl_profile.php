@@ -72,6 +72,50 @@ $favStmt = $pdo->prepare("
 $favStmt->execute([$viewTag]);
 $favorites = $favStmt->fetchAll();
 
+// ─── POST handlers ────────────────────────────────────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isLoggedIn) {
+    $action = $_POST['action'] ?? '';
+
+    // Edit own review
+    if ($action === 'edit_review') {
+        $reviewId  = (int)($_POST['review_id'] ?? 0);
+        $newRating = max(1, min(10, (int)($_POST['rating'] ?? 1)));
+        $newReview = trim($_POST['review'] ?? '') ?: null;
+        $check = $pdo->prepare("SELECT review_id FROM UserReviews WHERE user_tag=? AND review_id=?");
+        $check->execute([$sessionTag, $reviewId]);
+        if ($check->fetch()) {
+            $pdo->prepare("UPDATE Reviews SET rating=?, review=? WHERE id=?")
+                ->execute([$newRating, $newReview, $reviewId]);
+            $_SESSION['flash_success'] = '\u2713 Review updated.';
+        }
+        header('Location: syl_profile.php'); exit;
+    }
+
+    // Set as favorite pick (rank 1-4)
+    if ($action === 'set_favorite') {
+        $reviewId = (int)($_POST['review_id'] ?? 0);
+        $rank     = (int)($_POST['rank']      ?? 1);
+        if ($reviewId && $rank >= 1 && $rank <= 4) {
+            try {
+                $pdo->prepare("
+                    INSERT INTO UserFavorites (user_tag, review_id, rank)
+                    VALUES (?, ?, ?)
+                    ON DUPLICATE KEY UPDATE review_id = VALUES(review_id)
+                ")->execute([$sessionTag, $reviewId, $rank]);
+                $_SESSION['flash_success'] = '\u2605 Set as Pick ' . $rank . '!';
+            } catch (Exception $e) {
+                $_SESSION['flash_error'] = '\u26a0 Could not set favorite.';
+            }
+        }
+        header('Location: syl_profile.php'); exit;
+    }
+}
+
+// ─── Flash messages ───────────────────────────────────────────────────────────
+$flashError   = $_SESSION['flash_error']   ?? '';
+$flashSuccess = $_SESSION['flash_success'] ?? '';
+unset($_SESSION['flash_error'], $_SESSION['flash_success']);
+
 // ─── Reviews with filter ──────────────────────────────────────────────────────
 $filter = $_GET['filter'] ?? 'all'; // all | rating | week
 $baseQ  = "SELECT r.id, r.song_name, r.artist_name, r.album_name, r.duration, r.rating, r.review, r.review_date
@@ -222,7 +266,8 @@ footer{text-align:center;padding:32px 40px;color:var(--muted);font-size:.75rem;f
   <nav class="sb-nav">
     <a class="sb-link" href="syl_home.php"      data-label="home">      <span class="sb-icon">&#127968;</span><span class="sb-label">Home</span></a>
     <a class="sb-link" href="syl_songs.php"     data-label="songs">     <span class="sb-icon">&#127925;</span><span class="sb-label">Songs</span></a>
-    
+    <a class="sb-link" href="syl_friends.php"   data-label="friends">   <span class="sb-icon">&#128101;</span><span class="sb-label">Friends</span></a>
+
     <a class="sb-link" href="syl_community.php" data-label="community"><span class="sb-icon">&#127758;</span><span class="sb-label">Community</span></a>
   </nav>
   <div class="sb-bottom">
@@ -251,6 +296,13 @@ footer{text-align:center;padding:32px 40px;color:var(--muted);font-size:.75rem;f
     <?php endif; ?>
   </div>
 
+    <?php if (!empty($flashSuccess)): ?>
+  <div style="background:#69D17E18;border-left:4px solid var(--green);color:#69D17E;font-family:'Space Mono',monospace;font-size:.82rem;padding:12px 40px;"><?= h($flashSuccess) ?></div>
+  <?php endif; ?>
+  <?php if (!empty($flashError)): ?>
+  <div style="background:#F0629218;border-left:4px solid var(--pink);color:var(--pink);font-family:'Space Mono',monospace;font-size:.82rem;padding:12px 40px;"><?= h($flashError) ?></div>
+  <?php endif; ?>
+    
   <div class="profile-wrap">
     <div class="profile-top">
 
@@ -321,19 +373,70 @@ footer{text-align:center;padding:32px 40px;color:var(--muted);font-size:.75rem;f
       <span>#</span><span>Song</span><span>Artist</span><span>Duration</span><span>Rating</span><span>Review</span>
     </div>
 
-    <?php if (empty($reviews)): ?>
-      <p class="empty-state">No songs logged yet<?= $isOwnProfile ? '. Hit "+ Add Song" to get started!' : '.' ?></p>
+   <?php if (empty($reviews)): ?>
+      <p class="empty-state">No songs logged yet<?= $isOwnProfile ? '. Hit &ldquo;+ Add Song&rdquo; to get started!' : '.' ?></p>
     <?php else: ?>
       <?php foreach ($reviews as $i => $r): ?>
-      <!-- Each row links to the song detail page -->
-      <a class="song-row <?= $rowColors[$i % count($rowColors)] ?>" href="syl_song.php?id=<?= $r['id'] ?>">
-        <span class="row-num"><?= $i + 1 ?></span>
-        <span class="row-name"><?= h($r['song_name']) ?></span>
-        <span class="row-artist"><?= h($r['artist_name']) ?></span>
-        <span class="row-dur"><?= formatDuration($r['duration']) ?></span>
-        <span class="row-rating">&#9733; <?= h($r['rating']) ?></span>
-        <span class="row-note"><?= h($r['review'] ?? '') ?></span>
-      </a>
+      <div style="margin-bottom:8px;">
+        <a class="song-row <?= $rowColors[$i % count($rowColors)] ?>" href="syl_song.php?id=<?= $r['id'] ?>" style="margin-bottom:0;">
+          <span class="row-num"><?= $i + 1 ?></span>
+          <span class="row-name"><?= h($r['song_name']) ?></span>
+          <span class="row-artist"><?= h($r['artist_name']) ?></span>
+          <span class="row-dur"><?= formatDuration($r['duration']) ?></span>
+          <span class="row-rating">&#9733; <?= h($r['rating']) ?></span>
+          <span class="row-note"><?= h($r['review'] ?? '') ?></span>
+        </a>
+
+        <?php if ($isOwnProfile): ?>
+        <div style="display:flex;gap:8px;padding:5px 20px 0;flex-wrap:wrap;align-items:center;">
+          <button onclick="toggleEdit(<?= $r['id'] ?>)"
+            style="font-size:.7rem;font-family:'Space Mono',monospace;background:none;border:1px solid #ffffff15;color:var(--muted);padding:3px 10px;border-radius:8px;cursor:pointer;transition:all .15s;"
+            onmouseover="this.style.borderColor='var(--yellow)';this.style.color='var(--yellow)'"
+            onmouseout="this.style.borderColor='#ffffff15';this.style.color='var(--muted)'">
+            &#9998; Edit
+          </button>
+          <?php for ($rank = 1; $rank <= 4; $rank++):
+            $isFav = false;
+            foreach ($favorites as $fv) { if ((int)$fv['id'] === (int)$r['id']) { $isFav = true; break; } }
+          ?>
+          <form method="post" action="syl_profile.php" style="display:inline;">
+            <input type="hidden" name="action" value="set_favorite">
+            <input type="hidden" name="review_id" value="<?= $r['id'] ?>">
+            <input type="hidden" name="rank" value="<?= $rank ?>">
+            <button type="submit"
+              style="font-size:.7rem;font-family:'Space Mono',monospace;background:<?= $isFav?'#F5E64222':'none'?>;border:1px solid <?= $isFav?'var(--yellow)':'#ffffff15'?>;color:<?= $isFav?'var(--yellow)':'var(--muted)'?>;padding:3px 10px;border-radius:8px;cursor:pointer;transition:all .15s;">
+              &#9733; Pick <?= $rank ?>
+            </button>
+          </form>
+          <?php endfor; ?>
+        </div>
+
+        <div id="edit-<?= $r['id'] ?>" style="display:none;background:var(--card);border-radius:0 0 12px 12px;padding:14px 18px;border:1px solid #ffffff10;border-top:none;">
+          <form method="post" action="syl_profile.php">
+            <input type="hidden" name="action" value="edit_review">
+            <input type="hidden" name="review_id" value="<?= $r['id'] ?>">
+            <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+              <div style="flex:1;min-width:180px;">
+                <label style="font-family:'Space Mono',monospace;font-size:.62rem;color:var(--muted);letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:5px;">Review</label>
+                <input type="text" name="review" value="<?= h($r['review'] ?? '') ?>" placeholder="What did you think?"
+                  style="width:100%;padding:9px 12px;background:var(--darker);border:2px solid #ffffff10;border-radius:9px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.85rem;outline:none;"
+                  onfocus="this.style.borderColor='var(--yellow)'" onblur="this.style.borderColor='#ffffff10'">
+              </div>
+              <div style="width:80px;">
+                <label style="font-family:'Space Mono',monospace;font-size:.62rem;color:var(--muted);letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:5px;">Rating</label>
+                <input type="number" name="rating" min="1" max="10" value="<?= $r['rating'] ?>"
+                  style="width:100%;padding:9px 12px;background:var(--darker);border:2px solid #ffffff10;border-radius:9px;color:var(--text);font-family:'Space Mono',monospace;font-size:.85rem;outline:none;"
+                  onfocus="this.style.borderColor='var(--yellow)'" onblur="this.style.borderColor='#ffffff10'">
+              </div>
+              <div style="display:flex;gap:6px;">
+                <button type="submit" style="padding:9px 16px;background:var(--yellow);color:var(--dark);border:none;border-radius:9px;font-family:'Dela Gothic One',sans-serif;font-size:.8rem;cursor:pointer;">Save</button>
+                <button type="button" onclick="toggleEdit(<?= $r['id'] ?>)" style="padding:9px 14px;background:none;border:1px solid #ffffff15;color:var(--muted);border-radius:9px;font-family:'DM Sans',sans-serif;font-size:.8rem;cursor:pointer;">Cancel</button>
+              </div>
+            </div>
+          </form>
+        </div>
+        <?php endif; ?>
+      </div>
       <?php endforeach; ?>
     <?php endif; ?>
 
@@ -343,6 +446,11 @@ footer{text-align:center;padding:32px 40px;color:var(--muted);font-size:.75rem;f
 </div>
 
 <script>
+function toggleEdit(id) {
+  const el = document.getElementById("edit-" + id);
+  if (el) el.style.display = el.style.display === "none" ? "block" : "none";
+}
+
 let sbOpen = true;
 function toggleSidebar() {
   sbOpen = !sbOpen;
