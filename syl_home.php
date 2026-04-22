@@ -208,7 +208,7 @@ footer{text-align:center;padding:32px 40px;color:var(--muted);font-size:.75rem;f
   <nav class="sb-nav">
     <a class="sb-link active" href="syl_home.php"      data-label="home">      <span class="sb-icon">&#127968;</span><span class="sb-label">Home</span></a>
     <a class="sb-link " href="syl_songs.php"     data-label="songs">     <span class="sb-icon">&#127925;</span><span class="sb-label">Songs</span></a>
-    <a class="sb-link " href="syl_friends.php"   data-label="friends">   <span class="sb-icon">&#128101;</span><span class="sb-label">Friends</span></a>
+    
     <a class="sb-link " href="syl_community.php" data-label="community"><span class="sb-icon">&#127758;</span><span class="sb-label">Community</span></a>
   </nav>
   <div class="sb-bottom">
@@ -217,14 +217,13 @@ footer{text-align:center;padding:32px 40px;color:var(--muted);font-size:.75rem;f
 </aside>
 <div id="main">
   <div class="top-nav">
-    <div id="nav-out">
-      <button class="nbtn ghost"   onclick="window.location='syl_auth.php?tab=login'">Log In</button>
-      <button class="nbtn primary" onclick="window.location='syl_auth.php?tab=register'">Sign Up Free</button>
-    </div>
-    <div id="nav-in">
-      <div class="user-chip"><div class="user-av">&#127911;</div><span id="nav-uname">user</span></div>
-      <button class="nbtn out" onclick="doLogout()">Log Out</button>
-    </div>
+    <?php if ($isLoggedIn): ?>
+      <a class="nav-avatar" href="syl_profile.php" title="@<?= h($userTag) ?>" style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--teal));border:2px solid var(--yellow);display:flex;align-items:center;justify-content:center;font-size:1rem;text-decoration:none;transition:box-shadow .2s;flex-shrink:0;">&#127911;</a>
+      <a class="nbtn out" href="syl_auth.php?action=logout" style="text-decoration:none;">Log Out</a>
+    <?php else: ?>
+      <a class="nbtn ghost"   href="syl_auth.php?tab=login"    style="text-decoration:none;">Log In</a>
+      <a class="nbtn primary" href="syl_auth.php?tab=register" style="text-decoration:none;">Sign Up</a>
+    <?php endif; ?>
   </div>
   <div id="page-home" class="page active">
     <div class="hw">
@@ -448,7 +447,7 @@ function toggleSidebar(){
   document.body.classList.toggle('sb-col',!sbOpen);
 }
 
-const isLoggedIn = <?= $isLoggedIn ? "true" : "false" ?>;
+const isLoggedIn = <?= $isLoggedIn ? "true" : "false" ?>; // from PHP session
 function goAuth(tab){ alert('TODO: navigate to auth.php?tab='+tab); }
 function doLogout(){
   isLoggedIn=false;
