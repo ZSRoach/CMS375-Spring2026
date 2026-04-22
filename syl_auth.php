@@ -15,6 +15,20 @@ require_once 'db.php';
 
 function h($s) { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 
+// ─── Logout ───────────────────────────────────────────────────────────────────
+if (isset($_GET['action']) && $_GET['action'] === 'logout') {
+    session_destroy();
+    header('Location: syl_home.php');
+    exit;
+}
+
+// ─── Logout ───────────────────────────────────────────────────────────────────
+if (isset($_GET['action']) && $_GET['action'] === 'logout') {
+    session_destroy();
+    header('Location: syl_home.php');
+    exit;
+}
+
 // Already logged in — go home
 if (isset($_SESSION['user_tag']) && $_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: syl_home.php');
