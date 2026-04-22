@@ -27,6 +27,38 @@ if (isset($_GET['action']) && $_GET['action'] === 'logout') {
     session_destroy(); header('Location: syl_home.php'); exit;
 }
 
+// ─── Add review POST handler ─────────────────────────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add_review' && $isLoggedIn) {
+    $reviewId2 = (int)($_GET['id'] ?? 0);
+    $rating    = max(1, min(10, (int)($_POST['rating'] ?? 1)));
+    $reviewTxt = trim($_POST['review'] ?? '') ?: null;
+
+    // Load song info first
+    $sinfo = $pdo->prepare("SELECT r.song_name, r.artist_name, r.album_name, r.duration FROM Reviews r WHERE r.id=?");
+    $sinfo->execute([$reviewId2]);
+    $sinfo = $sinfo->fetch();
+
+    if ($sinfo) {
+        // Check duplicate
+        $dup = $pdo->prepare("SELECT r.id FROM Reviews r JOIN UserReviews ur ON r.id=ur.review_id WHERE ur.user_tag=? AND r.song_name=? AND r.artist_name=? LIMIT 1");
+        $dup->execute([$userTag, $sinfo['song_name'], $sinfo['artist_name']]);
+        $existing = $dup->fetch();
+        if ($existing) {
+            $_SESSION['flash_notice'] = '\u26a0 You already reviewed this song. Edit it on your profile.';
+            header("Location: syl_song.php?id=$reviewId2"); exit;
+        }
+        $stmt = $pdo->prepare("INSERT INTO Reviews (song_name,artist_name,album_name,duration,rating,review) VALUES (?,?,?,?,?,?)");
+        $stmt->execute([$sinfo['song_name'], $sinfo['artist_name'], $sinfo['album_name'], $sinfo['duration'], $rating, $reviewTxt]);
+        $newId = $pdo->lastInsertId();
+        $pdo->prepare("INSERT INTO UserReviews (user_tag,review_id) VALUES (?,?)")->execute([$userTag, $newId]);
+        header("Location: syl_song.php?id=$newId"); exit;
+    }
+    header("Location: syl_songs.php"); exit;
+}
+
+$flashNotice = $_SESSION['flash_notice'] ?? '';
+unset($_SESSION['flash_notice']);
+
 // ─── Get the review ID from URL ───────────────────────────────────────────────
 $reviewId = (int)($_GET['id'] ?? 0);
 if (!$reviewId) { header('Location: syl_songs.php'); exit; }
@@ -192,6 +224,7 @@ footer{text-align:center;padding:32px 40px;color:var(--muted);font-size:.75rem;f
   <nav class="sb-nav">
     <a class="sb-link" href="syl_home.php"      data-label="home">      <span class="sb-icon">&#127968;</span><span class="sb-label">Home</span></a>
     <a class="sb-link" href="syl_songs.php"     data-label="songs">     <span class="sb-icon">&#127925;</span><span class="sb-label">Songs</span></a>
+    <a class="sb-link" href="syl_friends.php"   data-label="friends">   <span class="sb-icon">&#128101;</span><span class="sb-label">Friends</span></a>
     
     <a class="sb-link" href="syl_community.php" data-label="community"><span class="sb-icon">&#127758;</span><span class="sb-label">Community</span></a>
   </nav>
@@ -213,6 +246,9 @@ footer{text-align:center;padding:32px 40px;color:var(--muted);font-size:.75rem;f
     <?php endif; ?>
   </div>
 
+  <?php if (!empty($flashNotice)): ?>
+  <div style="background:var(--card);border-left:4px solid var(--teal);color:var(--text);font-size:.85rem;padding:12px 40px;"><?= h($flashNotice) ?></div>
+  <?php endif; ?>
   <div class="song-wrap">
 
     <a class="back-btn" href="javascript:history.back()">&#8592; Back</a>
@@ -256,6 +292,51 @@ footer{text-align:center;padding:32px 40px;color:var(--muted);font-size:.75rem;f
         </div>
       </div>
     </div>
+
+    <!-- Add review section -->
+    <?php
+    $userAlreadyReviewed = false;
+    if ($isLoggedIn) {
+        foreach ($allReviews as $rv) {
+            if ($rv['reviewer_tag'] === $userTag) { $userAlreadyReviewed = true; break; }
+        }
+    }
+    ?>
+    <?php if ($isLoggedIn && !$userAlreadyReviewed): ?>
+    <div style="background:var(--card);border-radius:16px;padding:20px 22px;margin-bottom:24px;border:1px solid #ffffff08;">
+      <div style="font-family:'Dela Gothic One',sans-serif;font-size:1rem;margin-bottom:14px;color:var(--yellow);">&#9998; Write Your Review</div>
+      <form method="post" action="syl_song.php?id=<?= $reviewId ?>">
+        <input type="hidden" name="action" value="add_review">
+        <input type="hidden" name="rating" id="new-rating-val" value="1">
+        <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+          <div style="flex:1;min-width:180px;">
+            <label style="font-family:'Space Mono',monospace;font-size:.62rem;color:var(--muted);letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:5px;">Your Review (optional)</label>
+            <input type="text" name="review" placeholder="What did you think?"
+              style="width:100%;padding:10px 14px;background:var(--darker);border:2px solid #ffffff10;border-radius:10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.88rem;outline:none;"
+              onfocus="this.style.borderColor='var(--yellow)'" onblur="this.style.borderColor='#ffffff10'">
+          </div>
+          <div>
+            <label style="font-family:'Space Mono',monospace;font-size:.62rem;color:var(--muted);letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:5px;">Rating (1–10)</label>
+            <div id="new-star-row" style="display:flex;gap:3px;margin-bottom:4px;"></div>
+            <div id="new-rating-hint" style="font-family:'Space Mono',monospace;font-size:.62rem;color:var(--muted);">Click a star</div>
+          </div>
+          <button type="button" onclick="submitNewReview()"
+            style="padding:10px 20px;background:var(--yellow);color:var(--dark);border:none;border-radius:10px;font-family:'Dela Gothic One',sans-serif;font-size:.85rem;cursor:pointer;white-space:nowrap;margin-bottom:0;">
+            Post Review
+          </button>
+        </div>
+      </form>
+    </div>
+    <?php elseif ($isLoggedIn && $userAlreadyReviewed): ?>
+    <div style="background:var(--card);border-radius:12px;padding:12px 18px;margin-bottom:20px;border:1px solid #F5E64233;font-size:.85rem;color:var(--muted);">
+      &#9733; You reviewed this song &mdash; <a href="syl_profile.php" style="color:var(--yellow);font-weight:700;text-decoration:none;">edit it on your profile</a>
+    </div>
+    <?php elseif (!$isLoggedIn): ?>
+    <div style="background:var(--card);border-radius:12px;padding:12px 18px;margin-bottom:20px;font-size:.85rem;color:var(--muted);">
+      <a href="syl_auth.php?tab=login" style="color:var(--yellow);font-weight:700;text-decoration:none;">Log in</a> or
+      <a href="syl_auth.php?tab=register" style="color:var(--yellow);font-weight:700;text-decoration:none;">sign up</a> to review this song.
+    </div>
+    <?php endif; ?>
 
     <!-- Reviews and replies -->
     <div class="reviews-heading">&#128172; What people are saying</div>
@@ -308,6 +389,35 @@ footer{text-align:center;padding:32px 40px;color:var(--muted);font-size:.75rem;f
 </div>
 
 <script>
+let newRating = 0;
+(function buildNewStars() {
+  const row = document.getElementById('new-star-row');
+  if (!row) return;
+  for (let i = 1; i <= 10; i++) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = '\u2605';
+    btn.style.cssText = 'font-size:1.1rem;background:none;border:none;cursor:pointer;color:#ffffff20;padding:0 1px;transition:color .1s;';
+    btn.onclick = (function(n) { return function() {
+      newRating = n;
+      document.getElementById('new-rating-val').value = n;
+      document.querySelectorAll('#new-star-row button').forEach((s,i) => {
+        s.style.color = i < n ? 'var(--yellow)' : '#ffffff20';
+      });
+      const hints = ['','1','2','3','4','5 — Average','6','7 — Good','8 — Great','9 — Excellent','10 — Perfect'];
+      const hint = document.getElementById('new-rating-hint');
+      if (hint) hint.textContent = '\u2605 ' + hints[n];
+    };})(i);
+    row.appendChild(btn);
+  }
+})();
+
+function submitNewReview() {
+  if (!newRating) { alert('\u26a0 Please select a rating.'); return; }
+  document.getElementById('new-rating-val').value = newRating;
+  document.getElementById('new-rating-val').closest('form').submit();
+}
+
 let sbOpen = true;
 function toggleSidebar() {
   sbOpen = !sbOpen;
@@ -317,3 +427,4 @@ function toggleSidebar() {
 </script>
 </body>
 </html>
+
