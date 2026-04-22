@@ -24,11 +24,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $durSecs = count($parts) === 2 ? (int)$parts[0]*60+(int)$parts[1] : (int)$parts[0];
 
     if ($song && $artist) {
+        // Check if THIS user already reviewed this song
+        $dupCheck = $pdo->prepare("
+            SELECT r.id FROM Reviews r
+            JOIN UserReviews ur ON r.id = ur.review_id
+            WHERE ur.user_tag = ? AND r.song_name = ? AND r.artist_name = ?
+            LIMIT 1
+        ");
+        $dupCheck->execute([$userTag, $song, $artist]);
+        $existingReview = $dupCheck->fetch();
+
+        if ($existingReview) {
+            // This user already reviewed this song — send them to the existing review
+            $_SESSION['flash_notice'] = "You already reviewed \"$song\" — here is your existing review.";
+            header('Location: syl_song.php?id=' . $existingReview['id']);
+            exit;
+        }
+
+        // Check if OTHER users have reviewed this song already
+        $otherCheck = $pdo->prepare("
+            SELECT r.id, COUNT(*) AS cnt FROM Reviews r
+            JOIN UserReviews ur ON r.id = ur.review_id
+            WHERE r.song_name = ? AND r.artist_name = ?
+            LIMIT 1
+        ");
+        $otherCheck->execute([$song, $artist]);
+        $otherReview = $otherCheck->fetch();
+        $alreadyExists = $otherReview && $otherReview['cnt'] > 0;
+
+        // Insert the new review regardless (different users can review the same song)
         $stmt = $pdo->prepare("INSERT INTO Reviews (song_name,artist_name,album_name,duration,rating,review) VALUES (?,?,?,?,?,?)");
         $stmt->execute([$song,$artist,$album,$durSecs,$rating,$notes]);
         $reviewId = $pdo->lastInsertId();
         $stmt = $pdo->prepare("INSERT INTO UserReviews (user_tag,review_id) VALUES (?,?)");
         $stmt->execute([$userTag,$reviewId]);
+
+        if ($alreadyExists) {
+            $_SESSION['flash_notice'] = "&#9432; Others have also reviewed \"$song\" — check out what they think on the song page!";
+        } else {
+            $_SESSION['flash_notice'] = "&#10003; \"$song\" added successfully!";
+        }
+        header('Location: syl_song.php?id=' . $reviewId);
+        exit;
     }
     header('Location: syl_songs.php');
     exit;
@@ -296,7 +333,7 @@ footer{text-align:center;padding:32px 40px;color:var(--muted);font-size:.75rem;f
   <nav class="sb-nav">
     <a class="sb-link "      href="syl_home.php"      data-label="home">      <span class="sb-icon">&#127968;</span><span class="sb-label">Home</span></a>
     <a class="sb-link active"     href="syl_songs.php"     data-label="songs">     <span class="sb-icon">&#127925;</span><span class="sb-label">Songs</span></a>
-    <a class="sb-link "   href="syl_friends.php"   data-label="friends">   <span class="sb-icon">&#128101;</span><span class="sb-label">Friends</span></a>
+    
     <a class="sb-link " href="syl_community.php" data-label="community"><span class="sb-icon">&#127758;</span><span class="sb-label">Community</span></a>
   </nav>
   <div class="sb-bottom">
@@ -311,13 +348,21 @@ footer{text-align:center;padding:32px 40px;color:var(--muted);font-size:.75rem;f
   <div class="top-nav">
     <a href="syl_home.php" style="text-decoration:none;font-family:'Dela Gothic One',sans-serif;font-size:1.3rem;background:linear-gradient(90deg,var(--yellow),var(--pink),var(--teal));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-right:auto;padding-left:50px;">SYL</a>
     <?php if ($isLoggedIn): ?>
-      <div class="user-chip"><div class="user-av">&#127911;</div><span>@<?= h($userTag) ?></span></div>
+      <a class="nav-avatar" href="syl_profile.php" title="@<?= h($userTag) ?>" style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--teal));border:2px solid var(--yellow);display:flex;align-items:center;justify-content:center;font-size:1rem;text-decoration:none;transition:box-shadow .2s;flex-shrink:0;">&#127911;</a>
       <a class="nbtn out" href="syl_auth.php?action=logout" style="text-decoration:none;">Log Out</a>
     <?php else: ?>
       <a class="nbtn ghost"   href="syl_auth.php?tab=login"    style="text-decoration:none;">Log In</a>
       <a class="nbtn primary" href="syl_auth.php?tab=register" style="text-decoration:none;">Sign Up</a>
     <?php endif; ?>
   </div>
+
+  <!-- Flash notice -->
+  <?php if (!empty($_SESSION['flash_notice'])): ?>
+  <div style="background:var(--card);border-left:4px solid var(--teal);color:var(--text);font-size:.85rem;padding:12px 40px;margin:0;">
+    <?= htmlspecialchars($_SESSION['flash_notice'], ENT_QUOTES, 'UTF-8') ?>
+    <?php unset($_SESSION['flash_notice']); ?>
+  </div>
+  <?php endif; ?>
 
   <!-- ══════════════════════════════════
        SONGS PAGE
@@ -406,60 +451,32 @@ footer{text-align:center;padding:32px 40px;color:var(--muted);font-size:.75rem;f
 
 
 <script>
-/* ══════════════════════════════════════════════════════════════
-   AUTH STATE
-   isLoggedIn is false by default for this preview.
-   In PHP: const isLoggedIn = <?= $isLoggedIn ? 'true' : 'false' ?>;
-   Toggle with the buttons below to preview both states.
-══════════════════════════════════════════════════════════════ */
-const isLoggedIn = <?= $isLoggedIn ? "true" : "false" ?>;
+// ─── AUTH STATE (from PHP session) ───────────────────────────────────────────
+const isLoggedIn = <?= $isLoggedIn ? 'true' : 'false' ?>;
 
-/* ── Demo: click "Sign Up" to simulate login for preview ── */
-
-
-function renderAddButton() {
-  const area = document.getElementById('add-song-area');
-  if (isLoggedIn) {
-    area.innerHTML = '<button class="songs-add-btn" onclick="openModal(\"addModal\")">&#43; Add Song</button>';
-  } else {
-    area.innerHTML = '<a class="songs-guest-note" href="syl_auth.php?tab=register" style="text-decoration:none;">&#128274; Sign up to add songs</a>';
-  }
-}
-
-/* ══════════════════════════════════════════════════════════════
-   SONGS CATALOG — SAMPLE DATA
-   In PHP this is replaced by:
-     const SONGS_CATALOG = <?= json_encode($songsCatalog, JSON_HEX_TAG | JSON_HEX_QUOT) ?>;
-   where $songsCatalog is a SELECT from the Reviews table.
-   Fields: id, song_name, artist_name, album_name, duration (seconds), rating (1-10), review
-══════════════════════════════════════════════════════════════ */
+// ─── SONGS CATALOG (PHP-injected from DB) ────────────────────────────────────
 const SONGS_CATALOG = <?= json_encode($songsCatalog, JSON_HEX_TAG|JSON_HEX_QUOT) ?>;
 
-/* ══════════════════════════════════════════════════════════════
-   SONGS PAGE LOGIC
-══════════════════════════════════════════════════════════════ */
-let activeSort   = 'az';   // 'az' | 'album' | 'artist'
-let searchQuery  = '';
-
-// Emoji set for card thumbnails — deterministic by song id
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
 const EMOJIS = ['🎵','🎶','🎸','🎹','🎺','🎻','🥁','🎷','🎼','🎤','🎧','🪗'];
 const getEmoji = id => EMOJIS[id % EMOJIS.length];
 
-// Rating color class based on score (1-10)
 function ratingClass(r) {
-  if (r <= 4)  return 'rating-low';
-  if (r <= 6)  return 'rating-mid';
-  if (r <= 8)  return 'rating-good';
+  if (r <= 4) return 'rating-low';
+  if (r <= 6) return 'rating-mid';
+  if (r <= 8) return 'rating-good';
   return 'rating-great';
 }
 
-// formatDur() — mirrors PHP formatDuration(), converts seconds to m:ss
 function formatDur(s) {
   if (!s) return '—';
-  return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+  return Math.floor(s/60) + ':' + String(s%60).padStart(2,'0');
 }
 
-/* setSort() — update active sort pill and re-render */
+// ─── SORT & FILTER ────────────────────────────────────────────────────────────
+let activeSort  = 'az';
+let searchQuery = '';
+
 function setSort(mode) {
   activeSort = mode;
   ['az','album','artist'].forEach(m =>
@@ -468,207 +485,148 @@ function setSort(mode) {
   filterAndRender();
 }
 
-/* filterAndRender() — called on every search keystroke or sort change */
 function filterAndRender() {
   searchQuery = document.getElementById('songsSearch').value.toLowerCase().trim();
   renderSongs();
 }
 
+// ─── RENDER SONGS ─────────────────────────────────────────────────────────────
 function renderSongs() {
   const grid  = document.getElementById('songsGrid');
   const count = document.getElementById('songsCount');
 
-  /* 1. Filter — search across song name, artist, album, and review text */
   let results = SONGS_CATALOG.filter(s => {
     if (!searchQuery) return true;
-    const hay = [s.song_name, s.artist_name, s.album_name, s.review || '']
-      .join(' ').toLowerCase();
-    return hay.includes(searchQuery);
+    return [s.song_name, s.artist_name, s.album_name, s.review || '']
+      .join(' ').toLowerCase().includes(searchQuery);
   });
 
-  /* 2. Sort */
   if (activeSort === 'az') {
-    results.sort((a, b) => a.song_name.localeCompare(b.song_name));
+    results.sort((a,b) => a.song_name.localeCompare(b.song_name));
   } else if (activeSort === 'album') {
-    results.sort((a, b) =>
-      (a.album_name || '').localeCompare(b.album_name || '') ||
-      a.song_name.localeCompare(b.song_name)
-    );
-  } else { // artist
-    results.sort((a, b) =>
-      a.artist_name.localeCompare(b.artist_name) ||
-      a.song_name.localeCompare(b.song_name)
-    );
+    results.sort((a,b) => (a.album_name||'').localeCompare(b.album_name||'') || a.song_name.localeCompare(b.song_name));
+  } else {
+    results.sort((a,b) => a.artist_name.localeCompare(b.artist_name) || a.song_name.localeCompare(b.song_name));
   }
 
-  /* 3. Update count */
   count.innerHTML = results.length === 0
     ? 'No results found'
-    : `Showing <strong>${results.length}</strong> of <strong>${SONGS_CATALOG.length}</strong> songs`;
+    : 'Showing <strong>' + results.length + '</strong> of <strong>' + SONGS_CATALOG.length + '</strong> songs';
 
-  /* 4. Empty state */
   if (results.length === 0) {
-    grid.innerHTML = `
-      <div class="songs-empty">
-        <div class="songs-empty-icon">&#127925;</div>
-        <div class="songs-empty-title">No songs found</div>
-        <div class="songs-empty-sub">Try a different search term, or be the first to add this song!</div>
-      </div>`;
+    grid.innerHTML = '<div class="songs-empty" style="grid-column:1/-1"><div class="songs-empty-icon">&#127925;</div><div class="songs-empty-title">No songs found</div><div class="songs-empty-sub">Try a different search, or add this song!</div></div>';
     return;
   }
 
-  /* 5. Build grouped HTML */
   let html = '';
   let lastGroup = null;
 
   results.forEach((s, idx) => {
-    // Determine group key
-    let groupKey;
-    if (activeSort === 'az') {
-      groupKey = s.song_name.charAt(0).toUpperCase();
-    } else if (activeSort === 'album') {
-      groupKey = s.album_name || 'Unknown Album';
-    } else {
-      groupKey = s.artist_name;
-    }
+    const groupKey = activeSort === 'az'
+      ? s.song_name.charAt(0).toUpperCase()
+      : activeSort === 'album' ? (s.album_name || 'Unknown Album')
+      : s.artist_name;
 
-    // Insert divider when group changes
     if (groupKey !== lastGroup) {
-      html += `
-        <div class="songs-divider">
-          <div class="songs-divider-label">${groupKey}</div>
-          <div class="songs-divider-line"></div>
-        </div>`;
+      html += '<div class="songs-divider" style="grid-column:1/-1"><div class="songs-divider-label">' + groupKey + '</div><div class="songs-divider-line"></div></div>';
       lastGroup = groupKey;
     }
 
-    // Thumb background — subtle tint per rating
-    const thumbColors = {
-      low:  '#F0629215', mid:  '#FF8A5015',
-      good: '#F5E64215', great:'#69D17E15'
-    };
-    const rc    = ratingClass(s.rating).replace('rating-','');
-    const thumbBg = thumbColors[rc] || thumbColors.good;
+    const emoji = getEmoji(s.id || idx);
+    const rc = ratingClass(s.rating).replace('rating-','');
+    const thumbColors = {low:'#F0629215',mid:'#FF8A5015',good:'#F5E64215',great:'#69D17E15'};
+    const reviewHtml = s.review ? '<div class="sc-review">&ldquo;' + s.review + '&rdquo;</div>' : '';
 
-    // Review snippet
-    const reviewHtml = s.review
-      ? `<div class="sc-review">&ldquo;${s.review}&rdquo;</div>`
-      : '';
-
-    html += `
-      <div class="song-card">
-        <div class="sc-top">
-          <div class="sc-thumb" style="background:${thumbBg};">${getEmoji(s.id || idx)}</div>
-          <div class="sc-info">
-            <div class="sc-title">${s.song_name}</div>
-            <div class="sc-artist">${s.artist_name}</div>
-            <div class="sc-album">&#127894; ${s.album_name || 'Unknown Album'}</div>
-          </div>
-          <div class="sc-rating-block">
-            <div class="sc-rating ${ratingClass(s.rating)}">&#9733;&thinsp;${s.rating}</div>
-            <div class="sc-rating-sub">/ 10</div>
-            <div class="sc-dur">${formatDur(s.duration)}</div>
-          </div>
-        </div>
-        ${reviewHtml}
-      </div>`;
+    html += '<a class="song-card" href="syl_song.php?id=' + s.id + '" style="text-decoration:none;display:flex;flex-direction:column;gap:0;">' +
+      '<div class="sc-top">' +
+        '<div class="sc-thumb" style="background:' + (thumbColors[rc]||thumbColors.good) + ';">' + emoji + '</div>' +
+        '<div class="sc-info">' +
+          '<div class="sc-title">' + s.song_name + '</div>' +
+          '<div class="sc-artist">' + s.artist_name + '</div>' +
+          '<div class="sc-album">&#127894; ' + s.album_name + '</div>' +
+        '</div>' +
+        '<div class="sc-rating-block">' +
+          '<div class="sc-rating ' + ratingClass(s.rating) + '">&#9733;&thinsp;' + s.rating + '</div>' +
+          '<div class="sc-rating-sub">/ 10</div>' +
+          '<div class="sc-dur">' + formatDur(s.duration) + '</div>' +
+        '</div>' +
+      '</div>' +
+      reviewHtml +
+    '</a>';
   });
 
   grid.innerHTML = html;
 }
 
-/* ══════════════════════════════════════════════════════════════
-   ADD SONG MODAL
-   In PHP this is a <form method="post"> that submits to SYL.php.
-   Here the form is wired to a JS handler that adds to the
-   in-memory catalog for demo purposes.
-══════════════════════════════════════════════════════════════ */
-let currentRating = 0;
+// ─── ADD SONG BUTTON ──────────────────────────────────────────────────────────
+function renderAddButton() {
+  const area = document.getElementById('add-song-area');
+  if (!area) return;
+  area.innerHTML = '';
+  if (isLoggedIn) {
+    const btn = document.createElement('button');
+    btn.className = 'songs-add-btn';
+    btn.innerHTML = '&#43; Add Song';
+    btn.onclick = function() { openModal('addModal'); };
+    area.appendChild(btn);
+  } else {
+    const a = document.createElement('a');
+    a.className = 'songs-guest-note';
+    a.href = 'syl_auth.php?tab=register';
+    a.style.textDecoration = 'none';
+    a.innerHTML = '&#128274; Sign up to add songs';
+    area.appendChild(a);
+  }
+}
 
+// ─── MODAL ────────────────────────────────────────────────────────────────────
 function openModal(id) {
-  document.getElementById(id).classList.add('open');
-  buildStars();
-  // Clear fields
-  ['m-song','m-artist','m-album','m-dur','m-notes'].forEach(id => {
-    document.getElementById(id).value = '';
-  });
-  currentRating = 0;
-  updateStars();
+  const el = document.getElementById(id);
+  if (el) { el.classList.add('open'); buildStars(); }
 }
-
 function closeModal(id) {
-  document.getElementById(id).classList.remove('open');
+  const el = document.getElementById(id);
+  if (el) el.classList.remove('open');
 }
-
 function closeIfOverlay(e, id) {
   if (e.target === document.getElementById(id)) closeModal(id);
 }
 
-// Build 10 star buttons
+// ─── STAR RATING ──────────────────────────────────────────────────────────────
+let currentRating = 0;
+
 function buildStars() {
   const row = document.getElementById('starRow');
-  if (row.children.length === 10) return; // already built
+  if (!row || row.children.length === 10) return;
   row.innerHTML = '';
   for (let i = 1; i <= 10; i++) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'star-btn';
     btn.textContent = '★';
-    btn.onclick = () => { currentRating = i; updateStars(); };
+    btn.onclick = (function(n){ return function(){ currentRating = n; updateStars(); }; })(i);
     row.appendChild(btn);
   }
 }
 
 function updateStars() {
-  const stars = document.querySelectorAll('#starRow .star-btn');
-  stars.forEach((s, i) => s.classList.toggle('lit', i < currentRating));
+  document.querySelectorAll('#starRow .star-btn').forEach((s,i) =>
+    s.classList.toggle('lit', i < currentRating)
+  );
   const hints = ['','1 — Painful','2 — Very Bad','3 — Bad','4 — Below Average',
-                  '5 — Average','6 — Decent','7 — Good','8 — Great','9 — Excellent','10 — Perfect'];
-  document.getElementById('ratingHint').textContent = currentRating > 0
-    ? hints[currentRating]
-    : 'Click a star to rate';
+                  '5 — Average','6 — Decent','7 — Good','8 — Great',
+                  '9 — Excellent','10 — Perfect'];
+  const hint = document.getElementById('ratingHint');
+  if (hint) hint.textContent = currentRating > 0 ? hints[currentRating] : 'Click a star to rate';
 }
 
-// submitSong — validates then submits the real form to syl_songs.php
-function submitSong_disabled() {
-  const song   = document.getElementById('m-song').value.trim();
-  const artist = document.getElementById('m-artist').value.trim();
-  const album  = document.getElementById('m-album').value.trim() || 'Unknown Album';
-  const durRaw = document.getElementById('m-dur').value.trim();
-  const notes  = document.getElementById('m-notes').value.trim();
-
-  if (!song)          { alert('⚠ Song name is required.');         return; }
-  if (!artist)        { alert('⚠ Artist name is required.');        return; }
-  if (!currentRating) { alert('⚠ Please give the song a rating.');  return; }
-
-  // Convert m:ss → seconds (mirrors PHP logic in SYL.php add_song handler)
-  let durSecs = 0;
-  if (durRaw) {
-    const parts = durRaw.split(':');
-    durSecs = parts.length === 2
-      ? parseInt(parts[0]) * 60 + parseInt(parts[1])
-      : parseInt(parts[0]);
-  }
-
-  // Add to in-memory catalog (demo only — in PHP this POSTs to SYL.php)
-  const newEntry = {
-    id:          SONGS_CATALOG.length + 1,
-    song_name:   song,
-    artist_name: artist,
-    album_name:  album,
-    duration:    durSecs || null,
-    rating:      currentRating,
-    review:      notes || null,
-  };
-  SONGS_CATALOG.push(newEntry);
-
-  closeModal();
-  filterAndRender();
+function validateAndSubmit() {
+  if (!currentRating) { alert('⚠ Please give the song a rating.'); return; }
+  document.getElementById('rating-value').value = currentRating;
+  document.getElementById('addSongForm').submit();
 }
 
-/* ══════════════════════════════════════════════════════════════
-   SIDEBAR TOGGLE
-══════════════════════════════════════════════════════════════ */
+// ─── SIDEBAR ──────────────────────────────────────────────────────────────────
 let sbOpen = true;
 function toggleSidebar() {
   sbOpen = !sbOpen;
@@ -676,18 +634,12 @@ function toggleSidebar() {
   document.body.classList.toggle('sb-col', !sbOpen);
 }
 
-/* ══════════════════════════════════════════════════════════════
-   INIT
-══════════════════════════════════════════════════════════════ */
-renderAddButton();
-buildStars();
-renderSongs();
-
-function validateAndSubmit() {
-  if (!currentRating) { alert('\u26a0 Please give the song a rating.'); return; }
-  document.getElementById('rating-value').value = currentRating;
-  document.getElementById('addSongForm').submit();
-}
+// ─── INIT (wait for DOM) ──────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function() {
+  renderAddButton();
+  buildStars();
+  renderSongs();
+});
 </script>
 </body>
 </html>
