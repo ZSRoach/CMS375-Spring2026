@@ -2,6 +2,12 @@
 CREATE DATABASE IF NOT EXISTS music_reviews;
 USE music_reviews;
 
+-- Drop tables in reverse dependency order
+DROP TABLE IF EXISTS UserFavorites;
+DROP TABLE IF EXISTS UserReviews;
+DROP TABLE IF EXISTS Reviews;
+DROP TABLE IF EXISTS Users;
+
 -- Users Table
 CREATE TABLE Users (
     tag         VARCHAR(32)     NOT NULL,

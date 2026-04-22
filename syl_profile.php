@@ -268,7 +268,7 @@ footer{text-align:center;padding:32px 40px;color:var(--muted);font-size:.75rem;f
       <!-- Info -->
       <div>
         <div class="profile-name"><?= h($displayName) ?></div>
-        <div class="profile-handle">@<?= h($profileUser['tag']) ?> &middot; <?= h($profileUser['tag']) ?>.syl.app</div>
+        <div class="profile-handle">@<?= h($profileUser['tag']) ?></div>
         <div class="profile-bio"><?= h($profileUser['bio'] ?? 'No bio set yet.') ?></div>
 
         <div class="profile-stats">

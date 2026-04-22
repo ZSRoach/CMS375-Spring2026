@@ -53,7 +53,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $current = $_POST['current_password'] ?? '';
         $newPw   = $_POST['new_password']     ?? '';
         $confirm = $_POST['confirm_password'] ?? '';
-        $row = $pdo->prepare("SELECT pw_hash FROM Users WHERE tag=?")->execute([$userTag]) ? null : null;
         $stmt = $pdo->prepare("SELECT pw_hash FROM Users WHERE tag=?");
         $stmt->execute([$userTag]);
         $row = $stmt->fetch();
@@ -67,6 +66,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pdo->prepare("UPDATE Users SET pw_hash=? WHERE tag=?")
                 ->execute([password_hash($newPw,PASSWORD_BCRYPT),$userTag]);
             $_SESSION['flash_success'] = '✓ Password updated.';
+        }
+        header('Location: syl_settings.php'); exit;
+    }
+
+    // Update favorites — replaces all UserFavorites rows for this user
+    if ($action === 'update_favorites') {
+        $pdo->beginTransaction();
+        try {
+            $pdo->prepare("DELETE FROM UserFavorites WHERE user_tag=?")->execute([$userTag]);
+            $ins = $pdo->prepare("INSERT INTO UserFavorites (user_tag, review_id, rank) VALUES (?,?,?)");
+            for ($rank = 1; $rank <= 4; $rank++) {
+                $id = (int)($_POST['fav_' . $rank] ?? 0);
+                if ($id) $ins->execute([$userTag, $id, $rank]);
+            }
+            $pdo->commit();
+            $_SESSION['flash_success'] = '✓ Favorite picks updated.';
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            $_SESSION['flash_error'] = '⚠ Could not save favorites.';
         }
         header('Location: syl_settings.php'); exit;
     }
@@ -95,6 +113,18 @@ try {
     ");
     $stmt->execute([$userTag]);
     $favorites = $stmt->fetchAll();
+} catch (Exception $e) {}
+
+// ─── Load all of this user's reviews for the favorites dropdowns ──────────────
+$userReviews = [];
+try {
+    $stmt = $pdo->prepare("
+        SELECT r.id, r.song_name, r.artist_name, r.rating
+        FROM Reviews r JOIN UserReviews ur ON r.id = ur.review_id
+        WHERE ur.user_tag = ? ORDER BY r.song_name ASC
+    ");
+    $stmt->execute([$userTag]);
+    $userReviews = $stmt->fetchAll();
 } catch (Exception $e) {}
 
 $favColors = ['#69D17E','#5B9BF5','#9C6FE4','#FF8A50'];
@@ -293,7 +323,7 @@ footer{text-align:center;padding:32px 40px;color:var(--muted);font-size:.75rem;f
         <div class="avatar-preview">&#127911;</div>
         <div class="avatar-actions">
           <button class="avatar-btn" onclick="alert('Avatar upload coming in Phase 2')">&#128247; Upload Photo</button>
-          <div class="avatar-note">JPEG or PNG &middot; max 2MB &middot; stored in Users.picture</div>
+          <div class="avatar-note">JPEG or PNG &middot; max 2MB</div>
         </div>
       </div>
 
@@ -302,24 +332,23 @@ footer{text-align:center;padding:32px 40px;color:var(--muted);font-size:.75rem;f
         <div class="form-row">
         <div class="form-group">
           <label class="form-label">Username (tag)</label>
-          <input class="form-input readonly" name="tag" value="@joshm" disabled>
+          <input class="form-input readonly" name="tag" value="@<?= h($user['tag']) ?>" disabled>
           <span class="form-hint">Your @tag is permanent &mdash; it's your unique identifier in the DB</span>
         </div>
         <div class="form-group">
-          <label class="form-label">Email &mdash; Users.email</label>
-          <!-- In PHP: value="<?= h($currentUser['email']) ?>" -->
-          <input class="form-input" name="email" type="email" value="josh@example.com" id="s-email">
+          <label class="form-label">Email</label>
+          <input class="form-input" name="email" type="email" value="<?= h($user['email']) ?>" id="s-email">
         </div>
       </div>
 
       <div class="form-row">
         <div class="form-group">
-          <label class="form-label">First Name &mdash; Users.first_name</label>
+          <label class="form-label">First Name</label>
           <!-- In PHP: value="<?= h($currentUser['first_name']) ?>" -->
           <input class="form-input" name="first_name" type="text" value="<?= h($user['first_name']??'')?>" id="s-fname" required>
         </div>
         <div class="form-group">
-          <label class="form-label">Last Name &mdash; Users.last_name</label>
+          <label class="form-label">Last Name</label>
           <!-- In PHP: value="<?= h($currentUser['last_name']) ?>" -->
           <input class="form-input" name="last_name" type="text" value="<?= h($user['last_name']??'')?>" id="s-lname">
         </div>
@@ -327,7 +356,7 @@ footer{text-align:center;padding:32px 40px;color:var(--muted);font-size:.75rem;f
 
       <div class="form-row single">
         <div class="form-group">
-          <label class="form-label">Bio &mdash; Users.bio (max 200 chars)</label>
+          <label class="form-label">Bio</label>
           <!-- In PHP: <?= h($currentUser['bio'] ?? '') ?> -->
           <textarea class="form-input" name="bio" maxlength="200" id="s-bio"
                     placeholder="Tell people about your music taste&hellip;"><?= h($user['bio']??'')?></textarea>
@@ -336,19 +365,18 @@ footer{text-align:center;padding:32px 40px;color:var(--muted);font-size:.75rem;f
       </div>
 
       <button type="submit" class="form-submit">Save Profile</button>
+      </form>
     </div>
 
 
-    <!-- ─── PASSWORD SECTION ───
-         In PHP: action=update_password
-         PHP uses password_verify(current_pw, $user['pw_hash']) then
-         password_hash(new_pw, PASSWORD_BCRYPT) and UPDATE Users SET pw_hash=? -->
+    <!-- ─── PASSWORD SECTION ─── -->
     <div class="settings-section">
+      <form method="post" action="syl_settings.php"><input type="hidden" name="action" value="update_password">
       <div class="settings-section-header">
         <span class="settings-section-icon">&#128274;</span>
         <div>
           <div class="settings-section-title">Password</div>
-          <div class="settings-section-sub">Stored as bcrypt hash in Users.pw_hash</div>
+          <div class="settings-section-sub">Change your account password</div>
         </div>
       </div>
 
@@ -385,6 +413,7 @@ footer{text-align:center;padding:32px 40px;color:var(--muted);font-size:.75rem;f
       </div>
 
       <button type="submit" class="form-submit">Update Password</button>
+      </form>
     </div>
 
 
@@ -397,30 +426,33 @@ footer{text-align:center;padding:32px 40px;color:var(--muted);font-size:.75rem;f
         <span class="settings-section-icon">&#11088;</span>
         <div>
           <div class="settings-section-title">Favorite Picks</div>
-          <div class="settings-section-sub">Pin up to 4 reviews to your profile &mdash; stored in UserFavorites table</div>
+          <div class="settings-section-sub">Pin up to 4 of your reviews to the top of your profile</div>
         </div>
       </div>
-      <p style="font-size:.85rem;color:var(--muted);line-height:1.6;margin-bottom:16px;">
-        Go to your <strong style="color:var(--text)">profile page</strong> and click any song review to set it as a favorite pick.
-        Your 4 picks show in the 2&times;2 grid at the top of your profile, ordered by <code style="background:var(--darker);padding:1px 6px;border-radius:4px;font-size:.78rem;color:var(--teal)">UserFavorites.rank</code>.
-      </p>
-      <!-- Favorite slots placeholder — in PHP populated from getUserFavorites() -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-          <?php for ($slot=1;$slot<=4;$slot++):
-            $fav=null; foreach($favorites as $f){ if((int)$f['rank']===$slot){$fav=$f;break;} }
-            $fc=$favColors[$slot-1];
-          ?>
-          <div style="background:<?= $fav?$fc.'18':'var(--darker)'?>;border:2px solid <?= $fav?$fc.'44':'#ffffff0a'?>;border-radius:12px;padding:14px 16px;min-height:70px;display:flex;flex-direction:column;justify-content:flex-end;">
-            <div style="font-family:'Space Mono',monospace;font-size:.6rem;color:var(--muted);letter-spacing:1px;margin-bottom:6px;">PICK <?= $slot ?></div>
-            <?php if($fav): ?>
-              <div style="font-family:'Dela Gothic One',sans-serif;font-size:.82rem;"><?= h($fav['song_name'])?></div>
-              <div style="font-size:.7rem;color:var(--muted);margin-top:2px;"><?= h($fav['artist_name'])?></div>
-            <?php else: ?>
-              <div style="font-size:.78rem;color:var(--muted);">Empty &mdash; add from profile</div>
-            <?php endif; ?>
-          </div>
-          <?php endfor; ?>
+      <form method="post" action="syl_settings.php"><input type="hidden" name="action" value="update_favorites">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+        <?php for ($slot=1;$slot<=4;$slot++):
+          $fav=null; foreach($favorites as $f){ if((int)$f['rank']===$slot){$fav=$f;break;} }
+          $fc=$favColors[$slot-1];
+        ?>
+        <div style="background:<?= $fav?$fc.'18':'var(--darker)'?>;border:2px solid <?= $fav?$fc.'44':'#ffffff0a'?>;border-radius:12px;padding:14px 16px;">
+          <div style="font-family:'Space Mono',monospace;font-size:.6rem;color:var(--muted);letter-spacing:1px;margin-bottom:8px;">PICK <?= $slot ?></div>
+          <select name="fav_<?= $slot ?>" style="width:100%;background:var(--darker);border:1px solid #ffffff15;border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.82rem;padding:6px 10px;">
+            <option value="">— None —</option>
+            <?php foreach($userReviews as $rev): ?>
+              <option value="<?= $rev['id'] ?>" <?= $fav && $fav['id']==$rev['id']?'selected':'' ?>>
+                <?= h($rev['song_name']) ?> — <?= h($rev['artist_name']) ?> (★<?= $rev['rating'] ?>)
+              </option>
+            <?php endforeach; ?>
+          </select>
         </div>
+        <?php endfor; ?>
+      </div>
+      <?php if(empty($userReviews)): ?>
+        <p style="font-size:.82rem;color:var(--muted);margin-bottom:12px;">You have no reviews yet — add some songs first.</p>
+      <?php endif; ?>
+      <button type="submit" class="form-submit" <?= empty($userReviews)?'disabled':'' ?>>Save Picks</button>
+      </form>
     </div>
 
 
@@ -468,7 +500,7 @@ footer{text-align:center;padding:32px 40px;color:var(--muted);font-size:.75rem;f
     <div class="cm-actions">
       <button class="cm-cancel" onclick="closeConfirm()">Cancel</button>
       <form method="post" action="syl_settings.php" id="deleteForm" style="display:none;"><input type="hidden" name="action" value="delete_account"></form>
-      <button class="cm-confirm" onclick="this.closest('form').submit()" form="deleteForm">Yes, delete it</button>
+      <button class="cm-confirm" onclick="document.getElementById('deleteForm').submit()">Yes, delete it</button>
     </div>
   </div>
 </div>

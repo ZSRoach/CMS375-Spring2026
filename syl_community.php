@@ -329,12 +329,12 @@ function renderFeed() {
 function renderWidgets() {
   // Stats — in PHP these are real COUNT queries
   document.getElementById('stat-reviews').textContent = FEED_DATA.recent.length + '+';
-  document.getElementById('stat-members').textContent = '8';
-  document.getElementById('stat-today').textContent   = '3';
+  document.getElementById('stat-members').textContent = '<?= (int)$totalMembers ?>';
+  document.getElementById('stat-today').textContent   = '<?= (int)$todayReviews ?>';
 
-  document.getElementById('topSongs').innerHTML = TOP_SONGS.map(s => `
+  document.getElementById('topSongs').innerHTML = TOP_SONGS.map((s, i) => `
     <div class="top-song">
-      <span class="ts-rank">#${s.rank}</span>
+      <span class="ts-rank">#${i + 1}</span>
       <div class="ts-info">
         <div class="ts-name">${s.name}</div>
         <div class="ts-artist">${s.artist}</div>
