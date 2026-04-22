@@ -334,6 +334,7 @@ footer{text-align:center;padding:32px 40px;color:var(--muted);font-size:.75rem;f
     <a class="sb-link "      href="syl_home.php"      data-label="home">      <span class="sb-icon">&#127968;</span><span class="sb-label">Home</span></a>
     <a class="sb-link active"     href="syl_songs.php"     data-label="songs">     <span class="sb-icon">&#127925;</span><span class="sb-label">Songs</span></a>
     
+    <a class="sb-link" href="syl_friends.php"   data-label="friends">   <span class="sb-icon">&#128101;</span><span class="sb-label">Friends</span></a>
     <a class="sb-link " href="syl_community.php" data-label="community"><span class="sb-icon">&#127758;</span><span class="sb-label">Community</span></a>
   </nav>
   <div class="sb-bottom">
@@ -621,7 +622,25 @@ function updateStars() {
 }
 
 function validateAndSubmit() {
-  if (!currentRating) { alert('⚠ Please give the song a rating.'); return; }
+  if (!currentRating) { alert('\u26a0 Please give the song a rating.'); return; }
+
+  const songName   = document.querySelector('#addSongForm [name="song_name"]').value.trim().toLowerCase();
+  const artistName = document.querySelector('#addSongForm [name="artist"]').value.trim().toLowerCase();
+
+  if (songName && artistName) {
+    const exists = SONGS_CATALOG.find(s =>
+      s.song_name.toLowerCase() === songName &&
+      s.artist_name.toLowerCase() === artistName
+    );
+    if (exists) {
+      const goView = confirm(
+        '\u26a0 This song already exists in the catalog!\n\n' +
+        'Click OK to view the existing reviews, or Cancel to add your own review anyway.'
+      );
+      if (goView) { window.location.href = 'syl_song.php?id=' + exists.id; return; }
+    }
+  }
+
   document.getElementById('rating-value').value = currentRating;
   document.getElementById('addSongForm').submit();
 }
